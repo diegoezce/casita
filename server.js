@@ -98,11 +98,55 @@ app.get('/api/data', async (req, res) => {
   res.json(await readData());
 });
 
-app.post('/api/data', async (req, res) => {
+// Auth + storage para operaciones de escritura
+function requireAuth(req, res, next) {
   if (!verifyToken(req.headers['x-admin-token'])) return res.status(401).json({ error: 'Unauthorized' });
   if (!r2) return res.status(503).json({ error: 'Storage not configured' });
-  try { await writeData(req.body); res.json({ ok: true }); }
-  catch { res.status(500).json({ error: 'Save failed' }); }
+  next();
+}
+
+// Serializa las escrituras (read-modify-write) para evitar carreras
+let writeChain = Promise.resolve();
+function withData(mutator) {
+  writeChain = writeChain.then(async () => {
+    const data = (await readData()) || { products: [], settings: {} };
+    if (!Array.isArray(data.products)) data.products = [];
+    if (!data.settings) data.settings = {};
+    const result = await mutator(data);
+    await writeData(data);
+    return result;
+  });
+  return writeChain;
+}
+
+// Agregar o actualizar UN artículo (nunca reemplaza la lista entera)
+app.post('/api/product', requireAuth, async (req, res) => {
+  try {
+    const saved = await withData((data) => {
+      const p = req.body;
+      p.id = p.id || Date.now().toString(36);
+      const i = data.products.findIndex((x) => x.id === p.id);
+      if (i >= 0) data.products[i] = p; else data.products.unshift(p);
+      return p;
+    });
+    res.json({ ok: true, product: saved });
+  } catch { res.status(500).json({ error: 'Save failed' }); }
+});
+
+// Borrar UN artículo
+app.delete('/api/product/:id', requireAuth, async (req, res) => {
+  try {
+    await withData((data) => { data.products = data.products.filter((x) => x.id !== req.params.id); });
+    res.json({ ok: true });
+  } catch { res.status(500).json({ error: 'Delete failed' }); }
+});
+
+// Guardar solo la configuración
+app.put('/api/settings', requireAuth, async (req, res) => {
+  try {
+    await withData((data) => { data.settings = { ...data.settings, ...req.body }; });
+    res.json({ ok: true });
+  } catch { res.status(500).json({ error: 'Save failed' }); }
 });
 
 app.post('/api/auth', (req, res) => {
