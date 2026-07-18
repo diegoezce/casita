@@ -3,8 +3,15 @@ const multer = require('multer');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 
 const app = express();
+
+// Versión que cambia en cada arranque/deploy — rompe el caché de CSS/JS
+const VERSION = Date.now().toString(36);
+const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8')
+  .replace('./styles.css', `./styles.css?v=${VERSION}`)
+  .replace('./app.js', `./app.js?v=${VERSION}`);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const r2 = process.env.CF_ACCOUNT_ID ? new S3Client({
@@ -53,10 +60,24 @@ async function writeData(data) {
   }));
 }
 
-app.use(express.static(__dirname));
+// El HTML siempre fresco; apunta a assets versionados
+app.get(['/', '/index.html'], (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(INDEX_HTML);
+});
+
+app.use(express.static(__dirname, {
+  setHeaders: (res, filePath) => {
+    if (/\.(css|js)$/.test(filePath)) {
+      // seguros de cachear fuerte porque la URL lleva ?v=VERSION
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+}));
 app.use(express.json());
 
 app.get('/config.js', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.type('application/javascript');
   res.send(`window.__ENV__=${JSON.stringify({
     formspreeEndpoint: process.env.FORMSPREE_ENDPOINT || '',
