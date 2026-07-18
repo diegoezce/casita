@@ -61,12 +61,14 @@ function makeCarousel(images, alt) {
   return `<div class="carousel-wrap"><div class="carousel" id="detailCarousel">${slides}</div>${hint}<div class="carousel-nav"><button class="carousel-prev" type="button" aria-label="Anterior">&#8249;</button><div class="cdots">${dots}</div><button class="carousel-next" type="button" aria-label="Siguiente">&#8250;</button></div></div>`;
 }
 function openLightbox(src) {
-  const box = document.createElement('div');
+  // dialog + showModal para quedar en el top-layer, por encima del detalle
+  const box = document.createElement('dialog');
   box.className = 'lightbox';
   box.innerHTML = `<img src="${src}" alt=""><button class="lightbox-close" type="button" aria-label="Cerrar">×</button>`;
-  const close = () => box.remove();
-  box.addEventListener('click', (e) => { if (e.target === box || e.target.closest('.lightbox-close')) close(); });
   document.body.appendChild(box);
+  box.showModal();
+  box.addEventListener('click', (e) => { if (e.target === box || e.target.closest('.lightbox-close')) box.close(); });
+  box.addEventListener('close', () => box.remove());
 }
 function showProduct(id) {
   const p = products.find(item => item.id === id); if (!p) return;
