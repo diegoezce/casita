@@ -52,8 +52,16 @@ async function readData() {
 }
 
 async function writeData(data) {
+  const Bucket = process.env.R2_BUCKET_NAME;
+  // Backup del estado anterior antes de sobrescribir (red de seguridad)
+  try {
+    const prev = await r2.send(new GetObjectCommand({ Bucket, Key: DATA_KEY }));
+    const body = await prev.Body.transformToString();
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    await r2.send(new PutObjectCommand({ Bucket, Key: `backups/data-${stamp}.json`, Body: body, ContentType: 'application/json' }));
+  } catch { /* primera escritura o sin anterior: seguir */ }
   await r2.send(new PutObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
+    Bucket,
     Key: DATA_KEY,
     Body: JSON.stringify(data),
     ContentType: 'application/json',
