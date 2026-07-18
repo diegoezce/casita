@@ -248,8 +248,14 @@ dialog::backdrop { background:rgba(35,32,28,.55); }
 .admin-tab { flex:1; background:none; border:0; padding:12px 0; color:var(--muted); font-size:14px; font-weight:500; border-radius:10px; }
 .admin-tab.active { color:var(--ink); background:var(--paper); box-shadow:0 1px 4px rgba(0,0,0,.08); }
 
-/* Métricas del admin: publicado / vendido / etc. */
-.metrics { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:22px; }
+/* Métricas del admin: colapsadas por defecto, para no mezclar con el form */
+.metrics-toggle { margin-bottom:22px; }
+.metrics-toggle > summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px; padding:13px 15px; background:var(--cream); border-radius:12px; font-size:13px; font-weight:500; color:var(--ink); }
+.metrics-toggle > summary::-webkit-details-marker { display:none; }
+.metrics-toggle > summary::before { content:'📊'; }
+.metrics-toggle > summary::after { content:'▾'; margin-left:auto; color:var(--muted); transition:transform .2s; }
+.metrics-toggle[open] > summary::after { transform:rotate(180deg); }
+.metrics { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin:8px 0 0; }
 .metric { background:var(--cream); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:2px; border-left:3px solid var(--line); }
 .metric-label { font:10px 'DM Mono',monospace; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
 .metric-val { font-size:19px; font-weight:600; letter-spacing:-.3px; }

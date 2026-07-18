@@ -119,7 +119,10 @@
           <button class="admin-tab" data-tab="settings" type="button">Configuración</button>
         </div>
         <section class="tab-content" id="itemsTab">
-          <div class="metrics" id="adminMetrics"></div>
+          <details class="metrics-toggle">
+            <summary>Métricas (publicado / vendido)</summary>
+            <div class="metrics" id="adminMetrics"></div>
+          </details>
           <form class="item-form" id="itemForm">
             <input type="hidden" id="editId" />
             <div class="form-title"><h3 id="formHeading">Agregar artículo</h3><button class="small-button hidden" id="cancelEdit" type="button">Cancelar</button></div>
