@@ -33,21 +33,38 @@ function formatPrice(price) { return '$ ' + price; }
 function statusLabel(status) { return status === 'disponible' ? 'Disponible' : status === 'reservado' ? 'Reservado' : 'Vendido'; }
 function renderProducts() {
   const visible = activeFilter === 'todos' ? products : products.filter(p => p.status === activeFilter);
-  grid.innerHTML = visible.map(p => { const img = getImages(p)[0] || ''; return `<button class="product-card" type="button" data-id="${p.id}"><span class="badge ${p.status}">${statusLabel(p.status)}</span><img class="product-image" src="${img}" alt="${p.name}"/><span class="product-meta"><span><span class="product-name">${p.name}</span><span class="product-condition">${p.condition}</span></span><span class="product-price">${formatPrice(p.price)}</span></span></button>`; }).join('');
+  grid.innerHTML = visible.map(p => { const img = getImages(p)[0] || ''; return `<button class="product-card" type="button" data-id="${p.id}"><span class="badge ${p.status}">${statusLabel(p.status)}</span><img class="product-image" src="${img}" alt="${p.name}" loading="lazy" decoding="async"/><span class="product-meta"><span><span class="product-name">${p.name}</span><span class="product-condition">${p.condition}</span></span><span class="product-price">${formatPrice(p.price)}</span></span></button>`; }).join('');
   $('#emptyState').classList.toggle('hidden', visible.length > 0); $('#totalCount').textContent = products.length;
 }
 function renderAdmin() { $('#adminList').innerHTML = products.map(p => { const img = getImages(p)[0] || ''; return `<div class="admin-row"><img src="${img}" alt=""><div class="row-info"><p>${p.name}</p><small>${statusLabel(p.status)} · $ ${p.price}</small></div><div class="row-actions"><button class="icon-button edit-item" data-id="${p.id}" type="button">Editar</button><button class="icon-button delete-item" data-id="${p.id}" type="button">Eliminar</button></div></div>`; }).join(''); }
 function renderImageList() { $('#imageList').innerHTML = editImages.map((url, i) => `<div class="img-entry"><img src="${url}" class="img-thumb" /><button class="remove-img" type="button" data-i="${i}">×</button></div>`).join(''); }
 function applySettings() { $('.brand').innerHTML = settings.storeName.replace('.', '<span class="brand-dot">.</span>'); document.title = `${settings.storeName.replace('.', '')} — artículos con historia`; $('.intro').textContent = settings.storeIntro; $('#storeName').value = settings.storeName; $('#storeIntro').value = settings.storeIntro; $('#mpAlias').value = settings.mpAlias || ''; $('#mpCVU').value = settings.mpCVU || ''; $('#mpNombre').value = settings.mpNombre || ''; if (!serverEnv.uploadEnabled) $('#uploadBtn').style.display = 'none'; }
+async function compressImage(file, maxDim = 1600, quality = 0.8) {
+  if (!file.type.startsWith('image/')) return file;
+  try {
+    // imageOrientation:'from-image' respeta la rotación EXIF del celular
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    let { width, height } = bitmap;
+    const scale = Math.min(1, maxDim / Math.max(width, height));
+    width = Math.round(width * scale); height = Math.round(height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', quality));
+    if (!blob || blob.size >= file.size) return file; // si no achicó, usar original
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch { return file; } // fallback: subir sin comprimir
+}
 async function uploadImage(file) { const fd = new FormData(); fd.append('file', file); const r = await fetch('/api/upload', { method: 'POST', body: fd, headers: { 'x-admin-token': token() } }); if (!r.ok) throw new Error('Upload failed'); return (await r.json()).url; }
 document.addEventListener('change', async e => {
   if (e.target.id !== 'itemImageFile') return;
   const files = Array.from(e.target.files);
   if (!files.length) return;
   const status = $('#uploadStatus');
-  status.textContent = 'Subiendo…';
+  status.textContent = 'Optimizando y subiendo…';
   try {
-    for (const file of files) { editImages.push(await uploadImage(file)); }
+    for (const file of files) { editImages.push(await uploadImage(await compressImage(file))); }
     renderImageList(); status.textContent = '✓'; e.target.value = '';
   } catch { status.textContent = 'Error al subir'; }
 });
