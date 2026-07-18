@@ -2,9 +2,11 @@
   "name": "casita",
   "version": "1.0.0",
   "scripts": {
-    "start": "serve -s . -l ${PORT:-3000}"
+    "start": "node server.js"
   },
   "dependencies": {
-    "serve": "^14.2.4"
+    "@aws-sdk/client-s3": "^3.600.0",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1"
   }
 }
