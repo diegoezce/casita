@@ -126,12 +126,19 @@
             <div class="field-row"><label>Estado<select id="itemStatus"><option value="disponible">Disponible</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option></select></label><label>Condición<input id="itemCondition" required placeholder="Ej. Muy buen estado" /></label></div>
             <label>Fotos
               <div id="imageList" class="image-list"></div>
-              <div class="upload-row">
-                <input id="itemImage" type="url" placeholder="Pegá una URL y presioná +" />
-                <button class="upload-btn" type="button" id="addImageUrl">+</button>
-                <label class="upload-btn" id="uploadBtn"><input type="file" id="itemImageFile" accept="image/*" multiple hidden />Subir</label>
-                <span class="upload-status" id="uploadStatus"></span>
-              </div>
+              <label class="upload-big" id="uploadBtn">
+                <input type="file" id="itemImageFile" accept="image/*" multiple hidden />
+                <span class="upload-big-icon">＋</span>
+                <span>Subir fotos<small>Desde tu celular o galería</small></span>
+              </label>
+              <span class="upload-status" id="uploadStatus"></span>
+              <details class="upload-url-toggle">
+                <summary>o pegar una URL de imagen</summary>
+                <div class="upload-url">
+                  <input id="itemImage" type="url" placeholder="https://…" />
+                  <button class="upload-btn" type="button" id="addImageUrl">Agregar</button>
+                </div>
+              </details>
             </label>
             <label>Descripción<textarea id="itemDescription" required rows="3" placeholder="Contá detalles importantes del artículo."></textarea></label>
             <button class="primary-button" type="submit">Guardar artículo</button>

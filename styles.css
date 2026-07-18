@@ -203,14 +203,18 @@ dialog::backdrop { background:rgba(35,32,28,.55); }
 
 /* ---- Botones / formularios ------------------------------- */
 .buy-button, .primary-button {
-  border:0; padding:15px 22px; background:var(--ink); color:white;
-  font-size:14px; display:inline-block; border-radius:2px; text-align:center;
+  border:0; width:100%; padding:16px 22px; min-height:56px;
+  background:var(--ink); color:white; font-size:16px; font-weight:500;
+  border-radius:14px; text-align:center; display:inline-flex;
+  align-items:center; justify-content:center; gap:8px;
 }
+.buy-button:active, .primary-button:active { transform:scale(.99); }
 .buy-button[aria-disabled='true'] { opacity:.5; pointer-events:none; }
 .wa-button {
   display:flex; align-items:center; justify-content:center; gap:8px;
-  border:0; padding:15px 22px; background:#25d366; color:white;
-  font-size:14px; text-decoration:none; margin-bottom:14px; border-radius:2px;
+  border:0; width:100%; padding:16px 22px; min-height:56px;
+  background:#25d366; color:white; font-size:16px; font-weight:500;
+  text-decoration:none; margin-bottom:14px; border-radius:14px;
 }
 .wa-button:active { background:#1ebe5d; }
 .purchase-form { display:grid; gap:12px; margin-top:22px; }
@@ -237,54 +241,76 @@ dialog::backdrop { background:rgba(35,32,28,.55); }
 .admin-header { padding-top:24px; }
 .admin-header h2 { margin:0 0 8px; }
 .admin-header > p:last-child { color:var(--muted); font-size:13px; }
-.admin-tabs { border-bottom:1px solid var(--line); display:flex; gap:24px; margin:26px 0 22px; }
-.admin-tab { background:none; border:0; padding:0 0 10px; color:var(--muted); font-size:13px; }
-.admin-tab.active { color:var(--ink); border-bottom:2px solid var(--clay); }
+.admin-tabs { display:flex; gap:5px; margin:22px 0; background:var(--cream); padding:5px; border-radius:14px; }
+.admin-tab { flex:1; background:none; border:0; padding:12px 0; color:var(--muted); font-size:14px; font-weight:500; border-radius:10px; }
+.admin-tab.active { color:var(--ink); background:var(--paper); box-shadow:0 1px 4px rgba(0,0,0,.08); }
 
-.item-form, .settings-form { display:grid; gap:15px; padding:18px; background:#efede7; border-radius:3px; }
+.item-form, .settings-form { display:grid; gap:16px; padding:18px; background:#efede7; border-radius:16px; }
 .form-title { display:flex; justify-content:space-between; align-items:center; }
 .form-title h3 { margin:0; font-family:'Playfair Display',serif; font-weight:500; font-size:22px; }
 .field-row { display:grid; grid-template-columns:1fr; gap:14px; }
 label { display:grid; gap:7px; font-size:12px; }
 input, textarea, select {
   width:100%; border:1px solid #d2cfc6; background:#fbfaf6;
-  padding:12px; border-radius:2px; outline-color:var(--clay);
+  padding:14px; font-size:16px;      /* 16px evita el auto-zoom de iOS */
+  border-radius:12px; outline-color:var(--clay); min-height:52px;
 }
+textarea { min-height:auto; }
 textarea { resize:vertical; }
 small { color:var(--muted); line-height:1.45; }
 .primary-button { justify-self:stretch; margin-top:5px; }
 .small-button { border:0; background:none; color:var(--clay); font-size:12px; text-decoration:underline; }
 
-.admin-list { display:grid; gap:10px; margin-top:26px; }
+.admin-list { display:grid; gap:10px; margin-top:24px; }
 .admin-row {
-  display:grid; grid-template-columns:48px 1fr auto; gap:12px; align-items:center;
-  border-bottom:1px solid var(--line); padding:8px 0;
+  display:grid; grid-template-columns:56px 1fr auto; gap:12px; align-items:center;
+  background:var(--cream); border-radius:14px; padding:10px 12px;
 }
-.admin-row img { width:48px; height:48px; object-fit:cover; border-radius:2px; grid-row:span 2; }
-.admin-row p { margin:0; font-size:13px; }
-.admin-row small { font-size:11px; }
-.icon-button { border:0; background:none; color:var(--muted); font-size:12px; padding:6px; }
-.icon-button:active { color:var(--clay); }
-.admin-row .edit-item { grid-column:3; grid-row:1; }
-.admin-row .delete-item { grid-column:3; grid-row:2; }
+.admin-row img { width:56px; height:56px; object-fit:cover; border-radius:10px; }
+.row-info { min-width:0; }
+.admin-row p { margin:0; font-size:14px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.admin-row small { font-size:12px; }
+.row-actions { display:flex; flex-direction:column; gap:6px; }
+.icon-button {
+  border:0; background:var(--paper); color:var(--muted); font-size:13px;
+  min-height:38px; padding:0 16px; border-radius:11px; display:flex; align-items:center; justify-content:center;
+}
+.icon-button:active { color:var(--clay); background:#fff; }
+.icon-button.delete-item { color:#ad503d; }
 
 /* ---- Subir fotos (admin) --------------------------------- */
 .image-list { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
 .img-entry { position:relative; }
-.img-thumb { width:66px; height:66px; object-fit:cover; border-radius:2px; }
+.img-thumb { width:76px; height:76px; object-fit:cover; border-radius:10px; }
 .remove-img {
-  position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%;
-  border:0; background:var(--ink); color:white; font-size:13px; line-height:1;
+  position:absolute; top:-7px; right:-7px; width:24px; height:24px; border-radius:50%;
+  border:2px solid var(--paper); background:var(--ink); color:white; font-size:13px; line-height:1;
   display:flex; align-items:center; justify-content:center; padding:0;
 }
-.upload-row { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
-.upload-row .full { grid-column:1 / -1; }
+/* Botón grande de subir — protagonista, tipo app */
+.upload-big {
+  display:flex; align-items:center; gap:14px; width:100%;
+  padding:16px 18px; margin-top:4px; background:var(--paper);
+  border:2px dashed var(--clay); border-radius:16px; color:var(--ink);
+  font-size:16px; font-weight:500; cursor:pointer;
+}
+.upload-big:active { background:var(--cream); }
+.upload-big-icon {
+  width:48px; height:48px; flex-shrink:0; border-radius:14px;
+  background:var(--clay); color:#fff; font-size:28px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+}
+.upload-big small { display:block; color:var(--muted); font-size:12px; font-weight:400; margin-top:3px; }
+.upload-url-toggle { margin-top:12px; }
+.upload-url-toggle summary { color:var(--clay); font-size:13px; cursor:pointer; list-style:none; padding:6px 0; }
+.upload-url-toggle summary::-webkit-details-marker { display:none; }
+.upload-url { display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:8px; }
 .upload-btn {
   display:inline-flex; align-items:center; justify-content:center;
-  background:var(--ink); color:white; padding:11px 14px; font-size:12px;
-  white-space:nowrap; line-height:1; border-radius:2px;
+  background:var(--ink); color:white; padding:0 18px; min-height:52px; font-size:14px;
+  white-space:nowrap; line-height:1; border-radius:12px;
 }
-.upload-status { font-size:13px; color:var(--olive); white-space:nowrap; }
+.upload-status { display:block; font-size:14px; color:var(--olive); margin-top:10px; font-weight:500; }
 
 /* ---- Auth ------------------------------------------------ */
 .auth-dialog .dialog-body { padding-top:26px; }
@@ -298,9 +324,6 @@ small { color:var(--muted); line-height:1.45; }
   :root { --pad:28px; }
   .product-grid { grid-template-columns:repeat(3, 1fr); gap:34px 20px; }
   .field-row { grid-template-columns:1fr 1fr; }
-  .upload-row { grid-template-columns:1fr auto auto; }
-  .upload-row .full { grid-column:auto; }
-  .purchase-form .buy-button, .primary-button { justify-self:start; }
   .about-layout { grid-template-columns:1.3fr .9fr; gap:48px; align-items:start; }
 }
 
