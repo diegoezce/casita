@@ -111,10 +111,12 @@
           <div class="form-title"><h3 id="formHeading">Agregar artículo</h3><button class="small-button hidden" id="cancelEdit" type="button">Cancelar</button></div>
           <div class="field-row"><label>Nombre<input id="itemName" required placeholder="Ej. Sillón de cuero" /></label><label>Precio<input id="itemPrice" required placeholder="Ej. 85.000" /></label></div>
           <div class="field-row"><label>Estado<select id="itemStatus"><option value="disponible">Disponible</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option></select></label><label>Condición<input id="itemCondition" required placeholder="Ej. Muy buen estado" /></label></div>
-          <label>Foto
+          <label>Fotos
+            <div id="imageList" class="image-list"></div>
             <div class="upload-row">
-              <input id="itemImage" required type="url" placeholder="https://..." />
-              <label class="upload-btn" id="uploadBtn"><input type="file" id="itemImageFile" accept="image/*" hidden />Subir foto</label>
+              <input id="itemImage" type="url" placeholder="Pegá una URL y presioná +" />
+              <button class="upload-btn" type="button" id="addImageUrl">+</button>
+              <label class="upload-btn" id="uploadBtn"><input type="file" id="itemImageFile" accept="image/*" multiple hidden />Subir</label>
               <span class="upload-status" id="uploadStatus"></span>
             </div>
           </label>
