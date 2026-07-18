@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f5f0" />
+    <title>Casita — artículos con historia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="topline"></div>
+    <header class="site-header">
+      <a class="brand" href="#inicio" aria-label="Casita, inicio">ca<span>si</span>ta<span class="brand-dot">.</span></a>
+      <nav class="main-nav" aria-label="Navegación principal">
+        <a href="#catalogo">Artículos</a>
+        <a href="#sobre-mi">Sobre esta venta</a>
+      </nav>
+      <button class="admin-trigger" id="adminTrigger" type="button">Administrar <span>↗</span></button>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Venta de cosas queridas</p>
+          <h1>Objetos que<br><em>buscan</em> otra casa.</h1>
+          <p class="intro">Una selección personal de artículos que ya no uso, pero que todavía tienen mucho para dar.</p>
+          <a class="text-link" href="#catalogo">Ver el listado <span>↓</span></a>
+        </div>
+        <div class="hero-note">
+          <span class="note-line"></span>
+          <p>Todo lo que ves acá<br>está disponible para<br>ver y retirar en persona.</p>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="arch arch-one"></div>
+          <div class="arch arch-two"></div>
+          <span class="hero-sun"></span>
+          <span class="hero-object object-vase"></span>
+          <span class="hero-object object-plant"></span>
+        </div>
+      </section>
+
+      <section class="catalogue" id="catalogo">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">El listado</p>
+            <h2>Todo lo disponible</h2>
+          </div>
+          <div class="filters" aria-label="Filtrar artículos">
+            <button class="filter active" data-filter="todos" type="button">Todo <span id="totalCount">0</span></button>
+            <button class="filter" data-filter="disponible" type="button">Disponible</button>
+            <button class="filter" data-filter="reservado" type="button">Reservado</button>
+            <button class="filter" data-filter="vendido" type="button">Vendido</button>
+          </div>
+        </div>
+        <div class="product-grid" id="productGrid"></div>
+        <p class="empty-state hidden" id="emptyState">No hay artículos en esta categoría por ahora.</p>
+      </section>
+
+      <section class="about" id="sobre-mi">
+        <p class="eyebrow">Un poco de contexto</p>
+        <div class="about-layout">
+          <h2>Hacer lugar también es una forma de <em>elegir.</em></h2>
+          <div>
+            <p>Estoy ordenando y dejando ir objetos de mi casa. Algunos son nuevos, otros fueron muy usados y todos tienen su historia contada con honestidad.</p>
+            <p>Si te interesa algo, elegilo y dejame tu consulta. Coordinamos con tranquilidad.</p>
+            <a class="text-link" href="#catalogo">Ver artículos <span>↑</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="#inicio">ca<span>si</span>ta<span class="brand-dot">.</span></a>
+      <p>© <span id="year"></span> · Una venta personal</p>
+      <a href="#inicio">Volver arriba ↑</a>
+    </footer>
+
+    <dialog class="product-dialog" id="productDialog">
+      <button class="close-dialog" id="closeProduct" aria-label="Cerrar">×</button>
+      <div id="productDetail"></div>
+    </dialog>
+
+    <dialog class="admin-dialog" id="adminDialog">
+      <button class="close-dialog" id="closeAdmin" aria-label="Cerrar administración">×</button>
+      <div class="admin-header">
+        <p class="eyebrow">Panel privado</p>
+        <h2>Administrar el listado</h2>
+        <p>Los cambios se guardan en este navegador.</p>
+      </div>
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="items" type="button">Artículos</button>
+        <button class="admin-tab" data-tab="settings" type="button">Configuración</button>
+      </div>
+      <section class="tab-content" id="itemsTab">
+        <form class="item-form" id="itemForm">
+          <input type="hidden" id="editId" />
+          <div class="form-title"><h3 id="formHeading">Agregar artículo</h3><button class="small-button hidden" id="cancelEdit" type="button">Cancelar</button></div>
+          <div class="field-row"><label>Nombre<input id="itemName" required placeholder="Ej. Sillón de cuero" /></label><label>Precio<input id="itemPrice" required placeholder="Ej. 85.000" /></label></div>
+          <div class="field-row"><label>Estado<select id="itemStatus"><option value="disponible">Disponible</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option></select></label><label>Condición<input id="itemCondition" required placeholder="Ej. Muy buen estado" /></label></div>
+          <label>URL de foto<input id="itemImage" required type="url" placeholder="https://..." /></label>
+          <label>Descripción<textarea id="itemDescription" required rows="3" placeholder="Contá detalles importantes del artículo."></textarea></label>
+          <button class="primary-button" type="submit">Guardar artículo</button>
+        </form>
+        <div class="admin-list" id="adminList"></div>
+      </section>
+      <section class="tab-content hidden" id="settingsTab">
+        <form class="settings-form" id="settingsForm">
+          <label>Nombre de la tienda<input id="storeName" required /></label>
+          <label>Endpoint de Formspree<input id="formspreeEndpoint" required type="url" placeholder="https://formspree.io/f/tu_form_id" /><small>Creá tu formulario en Formspree y pegá acá su endpoint. Las consultas llegarán al email que configures allí.</small></label>
+          <label>Texto de presentación<textarea id="storeIntro" rows="3"></textarea></label>
+          <button class="primary-button" type="submit">Guardar configuración</button>
+        </form>
+      </section>
+    </dialog>
+    <script src="./app.js"></script>
+  </body>
+</html>
