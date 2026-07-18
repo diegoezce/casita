@@ -248,6 +248,17 @@ dialog::backdrop { background:rgba(35,32,28,.55); }
 .admin-tab { flex:1; background:none; border:0; padding:12px 0; color:var(--muted); font-size:14px; font-weight:500; border-radius:10px; }
 .admin-tab.active { color:var(--ink); background:var(--paper); box-shadow:0 1px 4px rgba(0,0,0,.08); }
 
+/* Métricas del admin: publicado / vendido / etc. */
+.metrics { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:22px; }
+.metric { background:var(--cream); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:2px; border-left:3px solid var(--line); }
+.metric-label { font:10px 'DM Mono',monospace; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+.metric-val { font-size:19px; font-weight:600; letter-spacing:-.3px; }
+.metric-count { font-size:11px; color:var(--muted); }
+.m-disp { border-left-color:var(--olive); }
+.m-res { border-left-color:#dbc275; }
+.m-vend { border-left-color:#3e4435; }
+.m-total { border-left-color:var(--clay); background:#efe7dd; }
+
 .item-form, .settings-form { display:grid; gap:16px; padding:18px; background:#efede7; border-radius:16px; }
 .form-title { display:flex; justify-content:space-between; align-items:center; }
 .form-title h3 { margin:0; font-family:'Playfair Display',serif; font-weight:500; font-size:22px; }

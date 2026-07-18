@@ -119,10 +119,11 @@
           <button class="admin-tab" data-tab="settings" type="button">Configuración</button>
         </div>
         <section class="tab-content" id="itemsTab">
+          <div class="metrics" id="adminMetrics"></div>
           <form class="item-form" id="itemForm">
             <input type="hidden" id="editId" />
             <div class="form-title"><h3 id="formHeading">Agregar artículo</h3><button class="small-button hidden" id="cancelEdit" type="button">Cancelar</button></div>
-            <div class="field-row"><label>Nombre<input id="itemName" required placeholder="Ej. Sillón de cuero" /></label><label>Precio<input id="itemPrice" required placeholder="Ej. 85.000" /></label></div>
+            <div class="field-row"><label>Nombre<input id="itemName" required placeholder="Ej. Sillón de cuero" /></label><label>Precio<input id="itemPrice" required inputmode="numeric" placeholder="Ej. 85000" /></label></div>
             <div class="field-row"><label>Estado<select id="itemStatus"><option value="disponible">Disponible</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option></select></label><label>Condición<input id="itemCondition" required placeholder="Ej. Muy buen estado" /></label></div>
             <label>Fotos
               <div id="imageList" class="image-list"></div>
