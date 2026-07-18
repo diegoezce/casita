@@ -76,68 +76,82 @@
     <footer>
       <a class="brand" href="#inicio">ca<span>si</span>ta<span class="brand-dot">.</span></a>
       <p>© <span id="year"></span> · Una venta personal</p>
-      <a href="#inicio">Volver arriba ↑</a>
+      <div class="footer-links">
+        <a href="https://wa.me/5491138835844" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>
+        <a href="#inicio">Volver arriba ↑</a>
+      </div>
     </footer>
 
     <dialog class="product-dialog" id="productDialog">
-      <button class="close-dialog" id="closeProduct" aria-label="Cerrar">×</button>
-      <div id="productDetail"></div>
+      <div class="dialog-header">
+        <button class="close-dialog" id="closeProduct" aria-label="Cerrar">×</button>
+      </div>
+      <div class="dialog-body" id="productDetail"></div>
     </dialog>
 
     <dialog class="auth-dialog" id="authDialog">
-      <p class="eyebrow">Panel privado</p>
-      <h2>Ingresá tu contraseña</h2>
-      <form id="authForm">
-        <label>Contraseña<input type="password" id="adminPassword" autocomplete="current-password" placeholder="••••••••" /></label>
-        <button class="primary-button" type="submit">Ingresar</button>
-        <p class="form-feedback" id="authFeedback"></p>
-      </form>
+      <div class="dialog-header">
+        <button class="close-dialog" id="closeAuth" aria-label="Cerrar">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="eyebrow">Panel privado</p>
+        <h2>Ingresá tu contraseña</h2>
+        <form id="authForm">
+          <label>Contraseña<input type="password" id="adminPassword" autocomplete="current-password" placeholder="••••••••" /></label>
+          <button class="primary-button" type="submit">Ingresar</button>
+          <p class="form-feedback" id="authFeedback"></p>
+        </form>
+      </div>
     </dialog>
 
     <dialog class="admin-dialog" id="adminDialog">
-      <button class="close-dialog" id="closeAdmin" aria-label="Cerrar administración">×</button>
-      <div class="admin-header">
-        <p class="eyebrow">Panel privado</p>
-        <h2>Administrar el listado</h2>
-        <p>Los cambios se guardan en este navegador.</p>
+      <div class="dialog-header">
+        <span class="dialog-title">Administrar</span>
+        <button class="close-dialog" id="closeAdmin" aria-label="Cerrar">×</button>
       </div>
-      <div class="admin-tabs">
-        <button class="admin-tab active" data-tab="items" type="button">Artículos</button>
-        <button class="admin-tab" data-tab="settings" type="button">Configuración</button>
-      </div>
-      <section class="tab-content" id="itemsTab">
-        <form class="item-form" id="itemForm">
-          <input type="hidden" id="editId" />
-          <div class="form-title"><h3 id="formHeading">Agregar artículo</h3><button class="small-button hidden" id="cancelEdit" type="button">Cancelar</button></div>
-          <div class="field-row"><label>Nombre<input id="itemName" required placeholder="Ej. Sillón de cuero" /></label><label>Precio<input id="itemPrice" required placeholder="Ej. 85.000" /></label></div>
-          <div class="field-row"><label>Estado<select id="itemStatus"><option value="disponible">Disponible</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option></select></label><label>Condición<input id="itemCondition" required placeholder="Ej. Muy buen estado" /></label></div>
-          <label>Fotos
-            <div id="imageList" class="image-list"></div>
-            <div class="upload-row">
-              <input id="itemImage" type="url" placeholder="Pegá una URL y presioná +" />
-              <button class="upload-btn" type="button" id="addImageUrl">+</button>
-              <label class="upload-btn" id="uploadBtn"><input type="file" id="itemImageFile" accept="image/*" multiple hidden />Subir</label>
-              <span class="upload-status" id="uploadStatus"></span>
+      <div class="dialog-body">
+        <div class="admin-header">
+          <p class="eyebrow">Panel privado</p>
+          <h2>Administrar el listado</h2>
+        </div>
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-tab="items" type="button">Artículos</button>
+          <button class="admin-tab" data-tab="settings" type="button">Configuración</button>
+        </div>
+        <section class="tab-content" id="itemsTab">
+          <form class="item-form" id="itemForm">
+            <input type="hidden" id="editId" />
+            <div class="form-title"><h3 id="formHeading">Agregar artículo</h3><button class="small-button hidden" id="cancelEdit" type="button">Cancelar</button></div>
+            <div class="field-row"><label>Nombre<input id="itemName" required placeholder="Ej. Sillón de cuero" /></label><label>Precio<input id="itemPrice" required placeholder="Ej. 85.000" /></label></div>
+            <div class="field-row"><label>Estado<select id="itemStatus"><option value="disponible">Disponible</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option></select></label><label>Condición<input id="itemCondition" required placeholder="Ej. Muy buen estado" /></label></div>
+            <label>Fotos
+              <div id="imageList" class="image-list"></div>
+              <div class="upload-row">
+                <input id="itemImage" type="url" placeholder="Pegá una URL y presioná +" />
+                <button class="upload-btn" type="button" id="addImageUrl">+</button>
+                <label class="upload-btn" id="uploadBtn"><input type="file" id="itemImageFile" accept="image/*" multiple hidden />Subir</label>
+                <span class="upload-status" id="uploadStatus"></span>
+              </div>
+            </label>
+            <label>Descripción<textarea id="itemDescription" required rows="3" placeholder="Contá detalles importantes del artículo."></textarea></label>
+            <button class="primary-button" type="submit">Guardar artículo</button>
+          </form>
+          <div class="admin-list" id="adminList"></div>
+        </section>
+        <section class="tab-content hidden" id="settingsTab">
+          <form class="settings-form" id="settingsForm">
+            <label>Nombre de la tienda<input id="storeName" required /></label>
+            <label>Texto de presentación<textarea id="storeIntro" rows="3"></textarea></label>
+            <p class="eyebrow" style="margin:12px 0 0">Mercado Pago</p>
+            <div class="field-row">
+              <label>Alias<input id="mpAlias" placeholder="Ej. diego.cervera.mp" /></label>
+              <label>CVU<input id="mpCVU" placeholder="000003100..." /></label>
             </div>
-          </label>
-          <label>Descripción<textarea id="itemDescription" required rows="3" placeholder="Contá detalles importantes del artículo."></textarea></label>
-          <button class="primary-button" type="submit">Guardar artículo</button>
-        </form>
-        <div class="admin-list" id="adminList"></div>
-      </section>
-      <section class="tab-content hidden" id="settingsTab">
-        <form class="settings-form" id="settingsForm">
-          <label>Nombre de la tienda<input id="storeName" required /></label>
-          <label>Texto de presentación<textarea id="storeIntro" rows="3"></textarea></label>
-          <p class="eyebrow" style="margin:12px 0 0">Mercado Pago</p>
-          <div class="field-row">
-            <label>Alias<input id="mpAlias" placeholder="Ej. diego.cervera.mp" /></label>
-            <label>CVU<input id="mpCVU" placeholder="000003100..." /></label>
-          </div>
-          <label>Nombre<input id="mpNombre" placeholder="Tu nombre completo" /></label>
-          <button class="primary-button" type="submit">Guardar configuración</button>
-        </form>
-      </section>
+            <label>Nombre<input id="mpNombre" placeholder="Tu nombre completo" /></label>
+            <button class="primary-button" type="submit">Guardar configuración</button>
+          </form>
+        </section>
+      </div>
     </dialog>
     <script src="/config.js"></script>
     <script src="./app.js"></script>

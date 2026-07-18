@@ -47,6 +47,7 @@ document.addEventListener('change', async e => {
   } catch { status.textContent = 'Error al subir'; }
 });
 function mpCard() { const { mpAlias, mpCVU, mpNombre } = settings; if (!mpAlias && !mpCVU) return ''; return `<div class="mp-card"><p class="mp-label">Mercado Pago</p>${mpAlias ? `<div class="mp-row"><span>Alias</span><button class="mp-copy" type="button" data-copy="${mpAlias}">${mpAlias} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpCVU ? `<div class="mp-row"><span>CVU</span><button class="mp-copy" type="button" data-copy="${mpCVU}">${mpCVU} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpNombre ? `<div class="mp-row"><span>A nombre de</span><span>${mpNombre}</span></div>` : ''}</div>`; }
+function waLink(productName, price) { const text = encodeURIComponent(`Hola! Me interesa "${productName}" (${formatPrice(price)}) que vi en casita.`); return `https://wa.me/5491138835844?text=${text}`; }
 function showProduct(id) {
   const p = products.find(item => item.id === id); if (!p) return;
   const available = p.status === 'disponible';
@@ -55,7 +56,8 @@ function showProduct(id) {
     ? `<img class="detail-img" src="${images[0] || ''}" alt="${p.name}">`
     : `<div class="carousel">${images.map(img => `<img class="detail-img carousel-slide" src="${img}" alt="${p.name}">`).join('')}</div>`;
   const form = `<form class="purchase-form" id="purchaseForm"><input type="hidden" name="articulo" value="${p.name}"><input type="hidden" name="precio" value="${formatPrice(p.price)}"><input type="hidden" name="estado" value="${statusLabel(p.status)}"><label>Tu nombre<input name="nombre" required autocomplete="name" placeholder="¿Cómo te llamás?" /></label><label>Tu email<input name="email" required type="email" autocomplete="email" placeholder="tu@email.com" /></label><label>Mensaje (opcional)<textarea name="mensaje" rows="2" placeholder="Ej. ¿Se puede retirar el sábado?"></textarea></label><button class="buy-button" type="submit">Enviar consulta ↗</button><p class="form-feedback" id="formFeedback"></p></form>`;
-  $('#productDetail').innerHTML = `<div class="detail-layout">${imgHtml}<div class="detail-copy"><p class="status-line ${p.status}">${statusLabel(p.status)}</p><h2>${p.name}</h2><p class="detail-price">${formatPrice(p.price)}</p><p class="product-condition">${p.condition}</p><p class="detail-description">${p.description}</p>${available ? form : `<span class="buy-button" aria-disabled="true">${statusLabel(p.status)}</span>`}${available ? mpCard() : ''}</div></div>`;
+  const waBtn = available ? `<a class="wa-button" href="${waLink(p.name, p.price)}" target="_blank" rel="noopener noreferrer">Consultar por WhatsApp ↗</a>` : '';
+  $('#productDetail').innerHTML = `<div class="detail-layout">${imgHtml}<div class="detail-copy"><p class="status-line ${p.status}">${statusLabel(p.status)}</p><h2>${p.name}</h2><p class="detail-price">${formatPrice(p.price)}</p><p class="product-condition">${p.condition}</p><p class="detail-description">${p.description}</p>${waBtn}${available ? form : `<span class="buy-button" aria-disabled="true">${statusLabel(p.status)}</span>`}${available ? mpCard() : ''}</div></div>`;
   $('#productDialog').showModal();
 }
 function resetForm() { $('#itemForm').reset(); $('#editId').value = ''; $('#formHeading').textContent = 'Agregar artículo'; $('#cancelEdit').classList.add('hidden'); editImages = []; renderImageList(); }
@@ -75,7 +77,7 @@ document.addEventListener('submit', async (e) => { if (e.target.id !== 'purchase
 function openAdmin() { renderAdmin(); $('#adminDialog').showModal(); }
 $('#adminTrigger').onclick = () => { if (!serverEnv.authRequired || token()) { openAdmin(); } else { $('#authFeedback').textContent=''; $('#authForm').reset(); $('#authDialog').showModal(); $('#adminPassword').focus(); } };
 $('#authForm').onsubmit = async (e) => { e.preventDefault(); const fb=$('#authFeedback'), btn=e.target.querySelector('button'); btn.disabled=true; try { const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#adminPassword').value})}); if(!r.ok) throw new Error(); sessionStorage.setItem('casita-token',(await r.json()).token); $('#authDialog').close(); openAdmin(); } catch { fb.textContent='Contraseña incorrecta.'; fb.className='form-feedback error'; btn.disabled=false; } };
-$('#closeAdmin').onclick=()=>$('#adminDialog').close(); $('#closeProduct').onclick=()=>$('#productDialog').close();
+$('#closeAdmin').onclick=()=>$('#adminDialog').close(); $('#closeProduct').onclick=()=>$('#productDialog').close(); $('#closeAuth').onclick=()=>$('#authDialog').close();
 ['adminDialog','productDialog','authDialog'].forEach(id=>{const d=$('#'+id);d.addEventListener('click',e=>{if(e.target===d)d.close();});});
 document.querySelectorAll('.admin-tab').forEach(tab=>tab.onclick=()=>{document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active',t===tab)); $('#itemsTab').classList.toggle('hidden',tab.dataset.tab!=='items'); $('#settingsTab').classList.toggle('hidden',tab.dataset.tab!=='settings');});
 $('#cancelEdit').onclick=resetForm;
