@@ -49,10 +49,19 @@ document.addEventListener('change', async e => {
 function mpCard() { const { mpAlias, mpCVU, mpNombre } = settings; if (!mpAlias && !mpCVU) return ''; return `<div class="mp-card"><p class="mp-label">Mercado Pago</p>${mpAlias ? `<div class="mp-row"><span>Alias</span><button class="mp-copy" type="button" data-copy="${mpAlias}">${mpAlias} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpCVU ? `<div class="mp-row"><span>CVU</span><button class="mp-copy" type="button" data-copy="${mpCVU}">${mpCVU} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpNombre ? `<div class="mp-row"><span>A nombre de</span><span>${mpNombre}</span></div>` : ''}</div>`; }
 function waLink(productName, price) { const text = encodeURIComponent(`Hola! Me interesa "${productName}" (${formatPrice(price)}) que vi en casita.`); return `https://wa.me/5491138835844?text=${text}`; }
 function makeCarousel(images, alt) {
-  if (images.length <= 1) return `<img class="detail-img" src="${images[0]||''}" alt="${alt}">`;
+  const hint = `<span class="zoom-hint">Tocá para ampliar</span>`;
+  if (images.length <= 1) return `<div class="carousel-wrap"><img class="detail-img" src="${images[0]||''}" alt="${alt}">${hint}</div>`;
   const slides = images.map((img,i) => `<img class="carousel-slide" src="${img}" alt="${alt}" data-idx="${i}">`).join('');
   const dots = images.map((_,i) => `<button class="cdot${i===0?' active':''}" type="button" data-dot="${i}" aria-label="Foto ${i+1}"></button>`).join('');
-  return `<div class="carousel-wrap"><div class="carousel" id="detailCarousel">${slides}</div><div class="carousel-nav"><button class="carousel-prev" type="button" aria-label="Anterior">&#8249;</button><div class="cdots">${dots}</div><button class="carousel-next" type="button" aria-label="Siguiente">&#8250;</button></div></div>`;
+  return `<div class="carousel-wrap"><div class="carousel" id="detailCarousel">${slides}</div>${hint}<div class="carousel-nav"><button class="carousel-prev" type="button" aria-label="Anterior">&#8249;</button><div class="cdots">${dots}</div><button class="carousel-next" type="button" aria-label="Siguiente">&#8250;</button></div></div>`;
+}
+function openLightbox(src) {
+  const box = document.createElement('div');
+  box.className = 'lightbox';
+  box.innerHTML = `<img src="${src}" alt=""><button class="lightbox-close" type="button" aria-label="Cerrar">×</button>`;
+  const close = () => box.remove();
+  box.addEventListener('click', (e) => { if (e.target === box || e.target.closest('.lightbox-close')) close(); });
+  document.body.appendChild(box);
 }
 function showProduct(id) {
   const p = products.find(item => item.id === id); if (!p) return;
@@ -75,6 +84,7 @@ function editProduct(id) { const p = products.find(item => item.id === id); if (
 document.addEventListener('click', (e) => {
   const copy=e.target.closest('.mp-copy'); if(copy){ navigator.clipboard.writeText(copy.dataset.copy); const hint=copy.querySelector('.mp-copy-hint'); if(hint){const orig=hint.textContent; hint.textContent='✓'; setTimeout(()=>hint.textContent=orig,1500);} return; }
   const removeImg=e.target.closest('.remove-img'); if(removeImg){ editImages.splice(parseInt(removeImg.dataset.i),1); renderImageList(); return; }
+  const zoomImg=e.target.closest('#productDetail .detail-img, #productDetail .carousel-slide'); if(zoomImg){ openLightbox(zoomImg.src); return; }
   const prev=e.target.closest('.carousel-prev'); if(prev){const c=document.getElementById('detailCarousel');if(c)c.scrollBy({left:-c.clientWidth,behavior:'smooth'});return;}
   const next=e.target.closest('.carousel-next'); if(next){const c=document.getElementById('detailCarousel');if(c)c.scrollBy({left:c.clientWidth,behavior:'smooth'});return;}
   const dot=e.target.closest('.cdot'); if(dot){const c=document.getElementById('detailCarousel');if(c)c.scrollTo({left:parseInt(dot.dataset.dot)*c.clientWidth,behavior:'smooth'});return;}
