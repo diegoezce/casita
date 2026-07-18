@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -17,6 +17,7 @@ const r2 = process.env.CF_ACCOUNT_ID ? new S3Client({
 }) : null;
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const DATA_KEY = 'data.json';
 
 function signToken() {
   const exp = Date.now() + 8 * 60 * 60 * 1000;
@@ -25,7 +26,7 @@ function signToken() {
 }
 
 function verifyToken(token) {
-  if (!token || !ADMIN_PASSWORD) return !ADMIN_PASSWORD; // if no password set, allow all
+  if (!token || !ADMIN_PASSWORD) return !ADMIN_PASSWORD;
   const dot = token.lastIndexOf('.');
   if (dot < 0) return false;
   const exp = token.slice(0, dot);
@@ -33,6 +34,23 @@ function verifyToken(token) {
   if (Date.now() > parseInt(exp)) return false;
   const expected = crypto.createHmac('sha256', ADMIN_PASSWORD).update(exp).digest('hex');
   try { return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex')); } catch { return false; }
+}
+
+async function readData() {
+  if (!r2) return null;
+  try {
+    const res = await r2.send(new GetObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: DATA_KEY }));
+    return JSON.parse(await res.Body.transformToString());
+  } catch { return null; }
+}
+
+async function writeData(data) {
+  await r2.send(new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: DATA_KEY,
+    Body: JSON.stringify(data),
+    ContentType: 'application/json',
+  }));
 }
 
 app.use(express.static(__dirname));
@@ -45,6 +63,17 @@ app.get('/config.js', (req, res) => {
     uploadEnabled: !!r2,
     authRequired: !!ADMIN_PASSWORD,
   })};`);
+});
+
+app.get('/api/data', async (req, res) => {
+  res.json(await readData());
+});
+
+app.post('/api/data', async (req, res) => {
+  if (!verifyToken(req.headers['x-admin-token'])) return res.status(401).json({ error: 'Unauthorized' });
+  if (!r2) return res.status(503).json({ error: 'Storage not configured' });
+  try { await writeData(req.body); res.json({ ok: true }); }
+  catch { res.status(500).json({ error: 'Save failed' }); }
 });
 
 app.post('/api/auth', (req, res) => {
@@ -67,9 +96,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       ContentType: req.file.mimetype,
     }));
     res.json({ url: `${process.env.R2_PUBLIC_URL}/${key}` });
-  } catch {
-    res.status(500).json({ error: 'Upload failed' });
-  }
+  } catch { res.status(500).json({ error: 'Upload failed' }); }
 });
 
 app.listen(process.env.PORT || 3000);

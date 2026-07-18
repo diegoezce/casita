@@ -7,15 +7,21 @@ const defaultProducts = [
   { id: 'speaker', name: 'Parlante portátil', price: '32.000', condition: 'Muy buen estado', status: 'disponible', image: 'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=1000&q=85', description: 'Parlante Bluetooth compacto. Batería de larga duración, cargador incluido y buen sonido.' }
 ];
 const defaults = { storeName: 'casita.', storeIntro: 'Una selección personal de artículos que ya no uso, pero que todavía tienen mucho para dar.' };
-let products = JSON.parse(localStorage.getItem('casita-products') || 'null') || defaultProducts;
-let settings = JSON.parse(localStorage.getItem('casita-settings') || 'null') || defaults;
 const serverEnv = window.__ENV__ || {};
-if (serverEnv.formspreeEndpoint) settings.formspreeEndpoint = serverEnv.formspreeEndpoint;
+let products = defaultProducts;
+let settings = { ...defaults };
 let activeFilter = 'todos';
 const $ = (selector) => document.querySelector(selector);
 const grid = $('#productGrid');
+const token = () => sessionStorage.getItem('casita-token') || '';
 
-function save() { localStorage.setItem('casita-products', JSON.stringify(products)); localStorage.setItem('casita-settings', JSON.stringify(settings)); }
+async function save() {
+  await fetch('/api/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-token': token() },
+    body: JSON.stringify({ products, settings }),
+  });
+}
 function formatPrice(price) { return '$ ' + price; }
 function statusLabel(status) { return status === 'disponible' ? 'Disponible' : status === 'reservado' ? 'Reservado' : 'Vendido'; }
 function renderProducts() {
@@ -25,7 +31,7 @@ function renderProducts() {
 }
 function renderAdmin() { $('#adminList').innerHTML = products.map(p => `<div class="admin-row"><img src="${p.image}" alt=""><div><p>${p.name}</p><small>${statusLabel(p.status)} · $ ${p.price}</small></div><button class="icon-button edit-item" data-id="${p.id}" type="button">Editar</button><button class="icon-button delete-item" data-id="${p.id}" type="button">Eliminar</button></div>`).join(''); }
 function applySettings() { $('.brand').innerHTML = settings.storeName.replace('.', '<span class="brand-dot">.</span>'); document.title = `${settings.storeName.replace('.', '')} — artículos con historia`; $('.intro').textContent = settings.storeIntro; $('#storeName').value = settings.storeName; $('#storeIntro').value = settings.storeIntro; if (!serverEnv.uploadEnabled) $('#uploadBtn').style.display = 'none'; }
-async function uploadImage(file) { const fd = new FormData(); fd.append('file', file); const r = await fetch('/api/upload', { method: 'POST', body: fd, headers: { 'x-admin-token': sessionStorage.getItem('casita-token') || '' } }); if (!r.ok) throw new Error('Upload failed'); return (await r.json()).url; }
+async function uploadImage(file) { const fd = new FormData(); fd.append('file', file); const r = await fetch('/api/upload', { method: 'POST', body: fd, headers: { 'x-admin-token': token() } }); if (!r.ok) throw new Error('Upload failed'); return (await r.json()).url; }
 document.addEventListener('change', async e => { if (e.target.id !== 'itemImageFile') return; const file = e.target.files[0]; if (!file) return; const status = $('#uploadStatus'); status.textContent = 'Subiendo…'; try { $('#itemImage').value = await uploadImage(file); status.textContent = '✓'; } catch { status.textContent = 'Error al subir'; } });
 function showProduct(id) { const p = products.find(item => item.id === id); if (!p) return; const available = p.status === 'disponible'; const form = `<form class="purchase-form" id="purchaseForm"><input type="hidden" name="articulo" value="${p.name}"><input type="hidden" name="precio" value="${formatPrice(p.price)}"><input type="hidden" name="estado" value="${statusLabel(p.status)}"><label>Tu nombre<input name="nombre" required autocomplete="name" placeholder="¿Cómo te llamás?" /></label><label>Tu email<input name="email" required type="email" autocomplete="email" placeholder="tu@email.com" /></label><label>Mensaje (opcional)<textarea name="mensaje" rows="2" placeholder="Ej. ¿Se puede retirar el sábado?"></textarea></label><button class="buy-button" type="submit">Enviar consulta ↗</button><p class="form-feedback" id="formFeedback"></p></form>`; $('#productDetail').innerHTML = `<div class="detail-layout"><img src="${p.image}" alt="${p.name}"><div class="detail-copy"><p class="status-line ${p.status}">${statusLabel(p.status)}</p><h2>${p.name}</h2><p class="detail-price">${formatPrice(p.price)}</p><p class="product-condition">${p.condition}</p><p class="detail-description">${p.description}</p>${available ? form : `<span class="buy-button" aria-disabled="true">${statusLabel(p.status)}</span>`}</div></div>`; $('#productDialog').showModal(); }
 function resetForm() { $('#itemForm').reset(); $('#editId').value = ''; $('#formHeading').textContent = 'Agregar artículo'; $('#cancelEdit').classList.add('hidden'); }
@@ -34,11 +40,19 @@ function editProduct(id) { const p = products.find(item => item.id === id); if (
 document.addEventListener('click', (e) => { const card=e.target.closest('.product-card'); if(card) showProduct(card.dataset.id); const filter=e.target.closest('.filter'); if(filter){activeFilter=filter.dataset.filter; document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b===filter)); renderProducts();} const edit=e.target.closest('.edit-item'); if(edit) editProduct(edit.dataset.id); const del=e.target.closest('.delete-item'); if(del && confirm('¿Eliminar este artículo del listado?')) {products=products.filter(p=>p.id!==del.dataset.id);save();renderProducts();renderAdmin();} });
 document.addEventListener('submit', async (e) => { if (e.target.id !== 'purchaseForm') return; e.preventDefault(); const form = e.target, feedback = $('#formFeedback'), button = form.querySelector('button'); if (!settings.formspreeEndpoint) { feedback.textContent = 'Todavía falta configurar el endpoint de Formspree.'; feedback.className = 'form-feedback error'; return; } button.disabled = true; button.textContent = 'Enviando…'; try { const response = await fetch(settings.formspreeEndpoint, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } }); if (!response.ok) throw new Error('No se pudo enviar'); form.reset(); feedback.textContent = '¡Listo! Recibí tu consulta y te respondo pronto.'; feedback.className = 'form-feedback success'; button.remove(); } catch { feedback.textContent = 'No se pudo enviar la consulta. Probá de nuevo en unos minutos.'; feedback.className = 'form-feedback error'; button.disabled = false; button.textContent = 'Enviar consulta ↗'; } });
 function openAdmin() { renderAdmin(); $('#adminDialog').showModal(); }
-$('#adminTrigger').onclick = () => { if (!serverEnv.authRequired || sessionStorage.getItem('casita-token')) { openAdmin(); } else { $('#authFeedback').textContent=''; $('#authForm').reset(); $('#authDialog').showModal(); $('#adminPassword').focus(); } };
+$('#adminTrigger').onclick = () => { if (!serverEnv.authRequired || token()) { openAdmin(); } else { $('#authFeedback').textContent=''; $('#authForm').reset(); $('#authDialog').showModal(); $('#adminPassword').focus(); } };
 $('#authForm').onsubmit = async (e) => { e.preventDefault(); const fb=$('#authFeedback'), btn=e.target.querySelector('button'); btn.disabled=true; try { const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#adminPassword').value})}); if(!r.ok) throw new Error(); sessionStorage.setItem('casita-token',(await r.json()).token); $('#authDialog').close(); openAdmin(); } catch { fb.textContent='Contraseña incorrecta.'; fb.className='form-feedback error'; btn.disabled=false; } };
 $('#closeAdmin').onclick=()=>$('#adminDialog').close(); $('#closeProduct').onclick=()=>$('#productDialog').close();
 document.querySelectorAll('.admin-tab').forEach(tab=>tab.onclick=()=>{document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active',t===tab)); $('#itemsTab').classList.toggle('hidden',tab.dataset.tab!=='items'); $('#settingsTab').classList.toggle('hidden',tab.dataset.tab!=='settings');});
 $('#cancelEdit').onclick=resetForm;
 $('#itemForm').onsubmit=(e)=>{e.preventDefault(); const id=$('#editId').value; const entry={id:id||Date.now().toString(36),name:$('#itemName').value.trim(),price:$('#itemPrice').value.trim(),condition:$('#itemCondition').value.trim(),status:$('#itemStatus').value,image:$('#itemImage').value.trim(),description:$('#itemDescription').value.trim()}; if(id) products=products.map(p=>p.id===id?entry:p); else products.unshift(entry); save();renderProducts();renderAdmin();resetForm();};
-$('#settingsForm').onsubmit=(e)=>{e.preventDefault();settings={storeName:$('#storeName').value.trim(),formspreeEndpoint:$('#formspreeEndpoint').value.trim(),storeIntro:$('#storeIntro').value.trim()};save();applySettings();};
-$('#year').textContent = new Date().getFullYear(); applySettings(); renderProducts();
+$('#settingsForm').onsubmit=(e)=>{e.preventDefault();settings={...settings,storeName:$('#storeName').value.trim(),storeIntro:$('#storeIntro').value.trim()};save();applySettings();};
+$('#year').textContent = new Date().getFullYear();
+async function init() {
+  const res = await fetch('/api/data');
+  const data = res.ok ? await res.json() : null;
+  if (data) { products = data.products || defaultProducts; settings = { ...defaults, ...data.settings }; }
+  if (serverEnv.formspreeEndpoint) settings.formspreeEndpoint = serverEnv.formspreeEndpoint;
+  applySettings(); renderProducts();
+}
+init();
