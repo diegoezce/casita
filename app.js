@@ -48,16 +48,25 @@ document.addEventListener('change', async e => {
 });
 function mpCard() { const { mpAlias, mpCVU, mpNombre } = settings; if (!mpAlias && !mpCVU) return ''; return `<div class="mp-card"><p class="mp-label">Mercado Pago</p>${mpAlias ? `<div class="mp-row"><span>Alias</span><button class="mp-copy" type="button" data-copy="${mpAlias}">${mpAlias} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpCVU ? `<div class="mp-row"><span>CVU</span><button class="mp-copy" type="button" data-copy="${mpCVU}">${mpCVU} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpNombre ? `<div class="mp-row"><span>A nombre de</span><span>${mpNombre}</span></div>` : ''}</div>`; }
 function waLink(productName, price) { const text = encodeURIComponent(`Hola! Me interesa "${productName}" (${formatPrice(price)}) que vi en casita.`); return `https://wa.me/5491138835844?text=${text}`; }
+function makeCarousel(images, alt) {
+  if (images.length <= 1) return `<img class="detail-img" src="${images[0]||''}" alt="${alt}">`;
+  const slides = images.map((img,i) => `<img class="carousel-slide" src="${img}" alt="${alt}" data-idx="${i}">`).join('');
+  const dots = images.map((_,i) => `<button class="cdot${i===0?' active':''}" type="button" data-dot="${i}" aria-label="Foto ${i+1}"></button>`).join('');
+  return `<div class="carousel-wrap"><div class="carousel" id="detailCarousel">${slides}</div><div class="carousel-nav"><button class="carousel-prev" type="button" aria-label="Anterior">&#8249;</button><div class="cdots">${dots}</div><button class="carousel-next" type="button" aria-label="Siguiente">&#8250;</button></div></div>`;
+}
 function showProduct(id) {
   const p = products.find(item => item.id === id); if (!p) return;
   const available = p.status === 'disponible';
   const images = getImages(p);
-  const imgHtml = images.length <= 1
-    ? `<img class="detail-img" src="${images[0] || ''}" alt="${p.name}">`
-    : `<div class="carousel">${images.map(img => `<img class="detail-img carousel-slide" src="${img}" alt="${p.name}">`).join('')}</div>`;
+  const imgHtml = makeCarousel(images, p.name);
   const form = `<form class="purchase-form" id="purchaseForm"><input type="hidden" name="articulo" value="${p.name}"><input type="hidden" name="precio" value="${formatPrice(p.price)}"><input type="hidden" name="estado" value="${statusLabel(p.status)}"><label>Tu nombre<input name="nombre" required autocomplete="name" placeholder="¿Cómo te llamás?" /></label><label>Tu email<input name="email" required type="email" autocomplete="email" placeholder="tu@email.com" /></label><label>Mensaje (opcional)<textarea name="mensaje" rows="2" placeholder="Ej. ¿Se puede retirar el sábado?"></textarea></label><button class="buy-button" type="submit">Enviar consulta ↗</button><p class="form-feedback" id="formFeedback"></p></form>`;
   const waBtn = available ? `<a class="wa-button" href="${waLink(p.name, p.price)}" target="_blank" rel="noopener noreferrer">Consultar por WhatsApp ↗</a>` : '';
   $('#productDetail').innerHTML = `<div class="detail-layout">${imgHtml}<div class="detail-copy"><p class="status-line ${p.status}">${statusLabel(p.status)}</p><h2>${p.name}</h2><p class="detail-price">${formatPrice(p.price)}</p><p class="product-condition">${p.condition}</p><p class="detail-description">${p.description}</p>${waBtn}${available ? form : `<span class="buy-button" aria-disabled="true">${statusLabel(p.status)}</span>`}${available ? mpCard() : ''}</div></div>`;
+  const car = document.getElementById('detailCarousel');
+  if (car) car.addEventListener('scroll', () => {
+    const idx = Math.round(car.scrollLeft / car.clientWidth);
+    document.querySelectorAll('.cdot').forEach((d,i) => d.classList.toggle('active', i===idx));
+  }, { passive: true });
   $('#productDialog').showModal();
 }
 function resetForm() { $('#itemForm').reset(); $('#editId').value = ''; $('#formHeading').textContent = 'Agregar artículo'; $('#cancelEdit').classList.add('hidden'); editImages = []; renderImageList(); }
