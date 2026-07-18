@@ -75,6 +75,9 @@ function editProduct(id) { const p = products.find(item => item.id === id); if (
 document.addEventListener('click', (e) => {
   const copy=e.target.closest('.mp-copy'); if(copy){ navigator.clipboard.writeText(copy.dataset.copy); const hint=copy.querySelector('.mp-copy-hint'); if(hint){const orig=hint.textContent; hint.textContent='✓'; setTimeout(()=>hint.textContent=orig,1500);} return; }
   const removeImg=e.target.closest('.remove-img'); if(removeImg){ editImages.splice(parseInt(removeImg.dataset.i),1); renderImageList(); return; }
+  const prev=e.target.closest('.carousel-prev'); if(prev){const c=document.getElementById('detailCarousel');if(c)c.scrollBy({left:-c.clientWidth,behavior:'smooth'});return;}
+  const next=e.target.closest('.carousel-next'); if(next){const c=document.getElementById('detailCarousel');if(c)c.scrollBy({left:c.clientWidth,behavior:'smooth'});return;}
+  const dot=e.target.closest('.cdot'); if(dot){const c=document.getElementById('detailCarousel');if(c)c.scrollTo({left:parseInt(dot.dataset.dot)*c.clientWidth,behavior:'smooth'});return;}
   const card=e.target.closest('.product-card'); if(card) showProduct(card.dataset.id);
   const filter=e.target.closest('.filter'); if(filter){activeFilter=filter.dataset.filter; document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b===filter)); renderProducts();}
   const edit=e.target.closest('.edit-item'); if(edit) editProduct(edit.dataset.id);
