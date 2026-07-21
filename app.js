@@ -40,7 +40,7 @@ function renderProducts() {
   grid.innerHTML = visible.map(p => { const img = getImages(p)[0] || ''; return `<button class="product-card" type="button" data-id="${p.id}"><span class="badge ${p.status}">${statusLabel(p.status)}</span><img class="product-image" src="${img}" alt="${p.name}" loading="lazy" decoding="async"/><span class="product-meta"><span><span class="product-name">${p.name}</span>&nbsp;<span class="product-condition">${p.condition}</span></span><span class="product-price">${formatPrice(p.price)}</span></span></button>`; }).join('');
   $('#emptyState').classList.toggle('hidden', visible.length > 0); $('#totalCount').textContent = products.length;
 }
-function renderAdmin() { renderMetrics(); $('#adminList').innerHTML = products.map(p => { const img = getImages(p)[0] || ''; return `<div class="admin-row"><img src="${img}" alt=""><div class="row-info"><p>${p.name}</p><small>${statusLabel(p.status)} · ${formatPrice(p.price)}</small></div><div class="row-actions"><button class="icon-button edit-item" data-id="${p.id}" type="button">Editar</button><button class="icon-button delete-item" data-id="${p.id}" type="button">Eliminar</button></div></div>`; }).join(''); }
+function renderAdmin() { renderMetrics(); $('#adminList').innerHTML = products.map(p => { const img = getImages(p)[0] || ''; return `<div class="admin-row"><img src="${img}" alt=""><div class="row-info"><p>${p.name}</p><small>${statusLabel(p.status)} · ${formatPrice(p.price)}</small></div><div class="row-actions"><button class="icon-button share-item" data-id="${p.id}" type="button">Compartir</button><button class="icon-button edit-item" data-id="${p.id}" type="button">Editar</button><button class="icon-button delete-item" data-id="${p.id}" type="button">Eliminar</button></div></div>`; }).join(''); }
 function renderMetrics() { const box = $('#adminMetrics'); if (!box) return; const g = { disponible: { n: 0, s: 0 }, reservado: { n: 0, s: 0 }, vendido: { n: 0, s: 0 } }; products.forEach(p => { const x = g[p.status]; if (!x) return; x.n++; const v = parsePrice(p.price); if (v) x.s += v; }); const total = { n: products.length, s: g.disponible.s + g.reservado.s + g.vendido.s }; const chip = (label, o, cls) => `<div class="metric ${cls}"><span class="metric-label">${label}</span><span class="metric-val">$ ${formatMiles(o.s)}</span><span class="metric-count">${o.n} ${o.n === 1 ? 'artículo' : 'artículos'}</span></div>`; box.innerHTML = chip('Disponible', g.disponible, 'm-disp') + chip('Reservado', g.reservado, 'm-res') + chip('Vendido', g.vendido, 'm-vend') + chip('Total', total, 'm-total'); }
 function renderImageList() { $('#imageList').innerHTML = editImages.map((url, i) => `<div class="img-entry"><img src="${url}" class="img-thumb" /><button class="remove-img" type="button" data-i="${i}">×</button></div>`).join(''); }
 function applySettings() { $('.brand').innerHTML = settings.storeName.replace('.', '<span class="brand-dot">.</span>'); document.title = `${settings.storeName.replace('.', '')} — artículos con historia`; $('.intro').textContent = settings.storeIntro; $('#storeName').value = settings.storeName; $('#storeIntro').value = settings.storeIntro; $('#mpAlias').value = settings.mpAlias || ''; $('#mpCVU').value = settings.mpCVU || ''; $('#mpNombre').value = settings.mpNombre || ''; if (!serverEnv.uploadEnabled) $('#uploadBtn').style.display = 'none'; }
@@ -75,6 +75,11 @@ document.addEventListener('change', async e => {
 });
 function mpCard() { const { mpAlias, mpCVU, mpNombre } = settings; if (!mpAlias && !mpCVU) return ''; return `<div class="mp-card"><p class="mp-label">Mercado Pago</p>${mpAlias ? `<div class="mp-row"><span>Alias</span><button class="mp-copy" type="button" data-copy="${mpAlias}">${mpAlias} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpCVU ? `<div class="mp-row"><span>CVU</span><button class="mp-copy" type="button" data-copy="${mpCVU}">${mpCVU} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpNombre ? `<div class="mp-row"><span>A nombre de</span><span>${mpNombre}</span></div>` : ''}</div>`; }
 function waLink(productName, price) { const text = encodeURIComponent(`Hola! Me interesa "${productName}" (${formatPrice(price)}) que vi en casita.`); return `https://wa.me/5491138835844?text=${text}`; }
+// Link público a un artículo puntual (deep-link ?item=ID) o al catálogo completo
+function itemUrl(id) { const base = location.origin + location.pathname; return id ? `${base}?item=${id}` : base; }
+// Compartir por WhatsApp: sin número, abre el selector para elegir grupo o lista de difusión
+function shareProduct(id) { const p = products.find(x => x.id === id); if (!p) return; const text = `Nuevo en ${settings.storeName.replace('.', '')}: ${p.name} — ${formatPrice(p.price)}\n${itemUrl(id)}`; window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener'); }
+function shareCatalog() { const n = products.filter(p => p.status === 'disponible').length; const store = settings.storeName.replace('.', ''); const text = `Estoy vendiendo algunas cosas en ${store} — ${n} ${n === 1 ? 'artículo disponible' : 'artículos disponibles'}. Mirá el catálogo:\n${itemUrl()}`; window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener'); }
 function makeCarousel(images, alt) {
   const hint = `<span class="zoom-hint">Tocá para ampliar</span>`;
   if (images.length <= 1) return `<div class="carousel-wrap"><img class="detail-img" src="${images[0]||''}" alt="${alt}">${hint}</div>`;
@@ -119,6 +124,8 @@ document.addEventListener('click', (e) => {
   const dot=e.target.closest('.cdot'); if(dot){const c=document.getElementById('detailCarousel');if(c)c.scrollTo({left:parseInt(dot.dataset.dot)*c.clientWidth,behavior:'smooth'});return;}
   const card=e.target.closest('.product-card'); if(card) showProduct(card.dataset.id);
   const filter=e.target.closest('.filter'); if(filter){activeFilter=filter.dataset.filter; document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b===filter)); renderProducts();}
+  const share=e.target.closest('.share-item'); if(share){ shareProduct(share.dataset.id); return; }
+  if(e.target.closest('#shareCatalog')){ shareCatalog(); return; }
   const edit=e.target.closest('.edit-item'); if(edit) editProduct(edit.dataset.id);
   const del=e.target.closest('.delete-item'); if(del && confirm('¿Eliminar este artículo del listado?')) { apiDeleteProduct(del.dataset.id).then(()=>{ products=products.filter(p=>p.id!==del.dataset.id); renderProducts(); renderAdmin(); }).catch(()=>{}); }
 });
@@ -142,5 +149,8 @@ async function init() {
   if (data) { products = data.products || defaultProducts; settings = { ...defaults, ...data.settings }; }
   if (serverEnv.formspreeEndpoint) settings.formspreeEndpoint = serverEnv.formspreeEndpoint;
   applySettings(); renderProducts();
+  // Deep-link: si el link trae ?item=ID, abrir ese artículo directo
+  const wanted = new URLSearchParams(location.search).get('item');
+  if (wanted && products.some(p => p.id === wanted)) showProduct(wanted);
 }
 init();
