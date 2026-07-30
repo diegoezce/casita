@@ -8,13 +8,16 @@ const defaultProducts = [
 ];
 const defaults = { storeName: 'casita.', storeIntro: 'Una selección personal de artículos que ya no uso, pero que todavía tienen mucho para dar.', mpAlias: '', mpCVU: '', mpNombre: '' };
 const serverEnv = window.__ENV__ || {};
+// El slug se resuelve por la ruta (/mi-venta); "/" cae en el perfil configurado como ROOT_SLUG
+const slug = (location.pathname.replace(/^\/+|\/+$/g, '').split('/')[0]) || serverEnv.rootSlug || '';
 let products = defaultProducts;
 let settings = { ...defaults };
+let whatsappPhone = '';
 let activeFilter = 'todos';
 let editImages = [];
 const $ = (selector) => document.querySelector(selector);
 const grid = $('#productGrid');
-const token = () => sessionStorage.getItem('casita-token') || '';
+const token = () => sessionStorage.getItem('casita-token-' + slug) || '';
 const getImages = (p) => p.images?.length ? p.images : (p.image ? [p.image] : []);
 
 async function apiWrite(method, path, body) {
@@ -26,9 +29,9 @@ async function apiWrite(method, path, body) {
   if (!r.ok) { alert('No se pudo guardar. Revisá tu conexión e intentá de nuevo.'); throw new Error('save failed'); }
   return r.json();
 }
-const apiSaveProduct = (p) => apiWrite('POST', '/api/product', p);
-const apiDeleteProduct = (id) => apiWrite('DELETE', '/api/product/' + id);
-const apiSaveSettings = (s) => apiWrite('PUT', '/api/settings', s);
+const apiSaveProduct = (p) => apiWrite('POST', `/api/p/${slug}/product`, p);
+const apiDeleteProduct = (id) => apiWrite('DELETE', `/api/p/${slug}/product/` + id);
+const apiSaveSettings = (s) => apiWrite('PUT', `/api/p/${slug}/settings`, s);
 // Precio: se guarda como número entero (pesos). parsePrice tolera datos viejos
 // (strings tipo "150.000") y valores no numéricos (ej. "Consultar" -> null).
 function parsePrice(v) { if (typeof v === 'number') return Number.isFinite(v) ? Math.round(v) : null; const d = String(v ?? '').replace(/\D/g, ''); return d ? parseInt(d, 10) : null; }
@@ -43,7 +46,7 @@ function renderProducts() {
 function renderAdmin() { renderMetrics(); $('#adminList').innerHTML = products.map(p => { const img = getImages(p)[0] || ''; return `<div class="admin-row"><img src="${img}" alt=""><div class="row-info"><p>${p.name}</p><small>${statusLabel(p.status)} · ${formatPrice(p.price)}</small></div><div class="row-actions"><button class="icon-button share-item" data-id="${p.id}" type="button">Compartir</button><button class="icon-button edit-item" data-id="${p.id}" type="button">Editar</button><button class="icon-button delete-item" data-id="${p.id}" type="button">Eliminar</button></div></div>`; }).join(''); }
 function renderMetrics() { const box = $('#adminMetrics'); if (!box) return; const g = { disponible: { n: 0, s: 0 }, reservado: { n: 0, s: 0 }, vendido: { n: 0, s: 0 } }; products.forEach(p => { const x = g[p.status]; if (!x) return; x.n++; const v = parsePrice(p.price); if (v) x.s += v; }); const total = { n: products.length, s: g.disponible.s + g.reservado.s + g.vendido.s }; const chip = (label, o, cls) => `<div class="metric ${cls}"><span class="metric-label">${label}</span><span class="metric-val">$ ${formatMiles(o.s)}</span><span class="metric-count">${o.n} ${o.n === 1 ? 'artículo' : 'artículos'}</span></div>`; box.innerHTML = chip('Disponible', g.disponible, 'm-disp') + chip('Reservado', g.reservado, 'm-res') + chip('Vendido', g.vendido, 'm-vend') + chip('Total', total, 'm-total'); }
 function renderImageList() { $('#imageList').innerHTML = editImages.map((url, i) => `<div class="img-entry"><img src="${url}" class="img-thumb" /><button class="remove-img" type="button" data-i="${i}">×</button></div>`).join(''); }
-function applySettings() { $('.brand').innerHTML = settings.storeName.replace('.', '<span class="brand-dot">.</span>'); document.title = `${settings.storeName.replace('.', '')} — artículos con historia`; $('.intro').textContent = settings.storeIntro; $('#storeName').value = settings.storeName; $('#storeIntro').value = settings.storeIntro; $('#mpAlias').value = settings.mpAlias || ''; $('#mpCVU').value = settings.mpCVU || ''; $('#mpNombre').value = settings.mpNombre || ''; if (!serverEnv.uploadEnabled) $('#uploadBtn').style.display = 'none'; }
+function applySettings() { $('.brand').innerHTML = settings.storeName.replace('.', '<span class="brand-dot">.</span>'); document.title = `${settings.storeName.replace('.', '')} — artículos con historia`; $('.intro').textContent = settings.storeIntro; $('#storeName').value = settings.storeName; $('#storeIntro').value = settings.storeIntro; $('#mpAlias').value = settings.mpAlias || ''; $('#mpCVU').value = settings.mpCVU || ''; $('#mpNombre').value = settings.mpNombre || ''; if (!serverEnv.uploadEnabled) $('#uploadBtn').style.display = 'none'; const footerWa = $('#footerWa'); if (footerWa) { if (whatsappPhone) { footerWa.href = 'https://wa.me/' + whatsappPhone.replace(/\D/g, ''); footerWa.style.display = ''; } else { footerWa.style.display = 'none'; } } }
 async function compressImage(file, maxDim = 1600, quality = 0.8) {
   if (!file.type.startsWith('image/')) return file;
   try {
@@ -61,7 +64,7 @@ async function compressImage(file, maxDim = 1600, quality = 0.8) {
     return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
   } catch { return file; } // fallback: subir sin comprimir
 }
-async function uploadImage(file) { const fd = new FormData(); fd.append('file', file); const r = await fetch('/api/upload', { method: 'POST', body: fd, headers: { 'x-admin-token': token() } }); if (!r.ok) throw new Error('Upload failed'); return (await r.json()).url; }
+async function uploadImage(file) { const fd = new FormData(); fd.append('file', file); const r = await fetch(`/api/p/${slug}/upload`, { method: 'POST', body: fd, headers: { 'x-admin-token': token() } }); if (!r.ok) throw new Error('Upload failed'); return (await r.json()).url; }
 document.addEventListener('change', async e => {
   if (e.target.id !== 'itemImageFile') return;
   const files = Array.from(e.target.files);
@@ -74,7 +77,7 @@ document.addEventListener('change', async e => {
   } catch { status.textContent = 'Error al subir'; }
 });
 function mpCard() { const { mpAlias, mpCVU, mpNombre } = settings; if (!mpAlias && !mpCVU) return ''; return `<div class="mp-card"><p class="mp-label">Mercado Pago</p>${mpAlias ? `<div class="mp-row"><span>Alias</span><button class="mp-copy" type="button" data-copy="${mpAlias}">${mpAlias} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpCVU ? `<div class="mp-row"><span>CVU</span><button class="mp-copy" type="button" data-copy="${mpCVU}">${mpCVU} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpNombre ? `<div class="mp-row"><span>A nombre de</span><span>${mpNombre}</span></div>` : ''}</div>`; }
-function waLink(productName, price) { const text = encodeURIComponent(`Hola! Me interesa "${productName}" (${formatPrice(price)}) que vi en casita.`); return `https://wa.me/5491138835844?text=${text}`; }
+function waLink(productName, price) { const text = encodeURIComponent(`Hola! Me interesa "${productName}" (${formatPrice(price)}) que vi en casita.`); return `https://wa.me/${whatsappPhone.replace(/\D/g, '')}?text=${text}`; }
 // Link público a un artículo puntual (deep-link ?item=ID) o al catálogo completo
 function itemUrl(id) { const base = location.origin + location.pathname; return id ? `${base}?item=${id}` : base; }
 // Compartir por WhatsApp: sin número, abre el selector para elegir grupo o lista de difusión
@@ -134,8 +137,8 @@ $('#addImageUrl').onclick = () => { const v=$('#itemImage').value.trim(); if(!v)
 $('#itemImage').onkeydown = (e) => { if(e.key==='Enter'){e.preventDefault();$('#addImageUrl').click();} };
 document.addEventListener('submit', async (e) => { if (e.target.id !== 'purchaseForm') return; e.preventDefault(); const form = e.target, feedback = $('#formFeedback'), button = form.querySelector('button'); if (!settings.formspreeEndpoint) { feedback.textContent = 'Todavía falta configurar el endpoint de Formspree.'; feedback.className = 'form-feedback error'; return; } button.disabled = true; button.textContent = 'Enviando…'; try { const response = await fetch(settings.formspreeEndpoint, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } }); if (!response.ok) throw new Error('No se pudo enviar'); form.reset(); feedback.textContent = '¡Listo! Recibí tu consulta y te respondo pronto.'; feedback.className = 'form-feedback success'; button.remove(); } catch { feedback.textContent = 'No se pudo enviar la consulta. Probá de nuevo en unos minutos.'; feedback.className = 'form-feedback error'; button.disabled = false; button.textContent = 'Enviar consulta ↗'; } });
 function openAdmin() { renderAdmin(); $('#adminDialog').showModal(); }
-$('#adminTrigger').onclick = () => { if (!serverEnv.authRequired || token()) { openAdmin(); } else { $('#authFeedback').textContent=''; $('#authForm').reset(); $('#authDialog').showModal(); $('#adminPassword').focus(); } };
-$('#authForm').onsubmit = async (e) => { e.preventDefault(); const fb=$('#authFeedback'), btn=e.target.querySelector('button'); btn.disabled=true; try { const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#adminPassword').value})}); if(!r.ok) throw new Error(); sessionStorage.setItem('casita-token',(await r.json()).token); $('#authDialog').close(); openAdmin(); } catch { fb.textContent='Contraseña incorrecta.'; fb.className='form-feedback error'; btn.disabled=false; } };
+$('#adminTrigger').onclick = () => { if (token()) { openAdmin(); } else { $('#authFeedback').textContent=''; $('#authForm').reset(); $('#authDialog').showModal(); $('#adminPassword').focus(); } };
+$('#authForm').onsubmit = async (e) => { e.preventDefault(); const fb=$('#authFeedback'), btn=e.target.querySelector('button'); btn.disabled=true; try { const r=await fetch(`/api/p/${slug}/auth`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#adminPassword').value})}); if(!r.ok) throw new Error(); sessionStorage.setItem('casita-token-' + slug,(await r.json()).token); $('#authDialog').close(); openAdmin(); } catch { fb.textContent='Contraseña incorrecta.'; fb.className='form-feedback error'; btn.disabled=false; } };
 $('#closeAdmin').onclick=()=>$('#adminDialog').close(); $('#closeProduct').onclick=()=>$('#productDialog').close(); $('#closeAuth').onclick=()=>$('#authDialog').close();
 ['adminDialog','productDialog','authDialog'].forEach(id=>{const d=$('#'+id);d.addEventListener('click',e=>{if(e.target===d)d.close();});});
 document.querySelectorAll('.admin-tab').forEach(tab=>tab.onclick=()=>{document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active',t===tab)); $('#itemsTab').classList.toggle('hidden',tab.dataset.tab!=='items'); $('#settingsTab').classList.toggle('hidden',tab.dataset.tab!=='settings');});
@@ -144,9 +147,16 @@ $('#itemForm').onsubmit=async (e)=>{e.preventDefault(); if(!editImages.length){a
 $('#settingsForm').onsubmit=async (e)=>{e.preventDefault(); const s={storeName:$('#storeName').value.trim(),storeIntro:$('#storeIntro').value.trim(),mpAlias:$('#mpAlias').value.trim(),mpCVU:$('#mpCVU').value.trim(),mpNombre:$('#mpNombre').value.trim()}; try{ await apiSaveSettings(s); settings={...settings,...s}; applySettings(); }catch{} };
 $('#year').textContent = new Date().getFullYear();
 async function init() {
-  const res = await fetch('/api/data');
+  const res = await fetch(`/api/p/${slug}/data`);
+  if (res.status === 404) {
+    $('.hero').innerHTML = '<div class="hero-copy"><p class="eyebrow">404</p><h1>Perfil no encontrado.</h1><p class="intro">No existe ninguna venta con esa dirección.</p></div>';
+    $('.catalogue').style.display = 'none';
+    $('.about').style.display = 'none';
+    $('#adminTrigger').style.display = 'none';
+    return;
+  }
   const data = res.ok ? await res.json() : null;
-  if (data) { products = data.products || defaultProducts; settings = { ...defaults, ...data.settings }; }
+  if (data) { products = data.products || defaultProducts; settings = { ...defaults, ...data.settings }; whatsappPhone = data.phone || ''; }
   if (serverEnv.formspreeEndpoint) settings.formspreeEndpoint = serverEnv.formspreeEndpoint;
   applySettings(); renderProducts();
   // Deep-link: si el link trae ?item=ID, abrir ese artículo directo

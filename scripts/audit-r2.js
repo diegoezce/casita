@@ -16,19 +16,26 @@ const Bucket = process.env.R2_BUCKET_NAME;
     token = r.IsTruncated ? r.NextContinuationToken : null;
   } while (token);
 
-  // 2. data.json actual
+  // 2. data.json actual (multi-tenant: iterar todos los perfiles)
   const res = await r2.send(new GetObjectCommand({ Bucket, Key: 'data.json' }));
   const data = JSON.parse(await res.Body.transformToString());
+  const profiles = Object.values(data.profiles || {});
   const referenced = new Set();
-  (data.products || []).forEach(p => {
-    (p.images || []).forEach(u => referenced.add(u.split('/').pop()));
-    if (p.image) referenced.add(p.image.split('/').pop());
+  let totalProducts = 0;
+  profiles.forEach(profile => {
+    const products = profile.products || [];
+    totalProducts += products.length;
+    console.log(`  perfil ${profile.slug}: ${products.length} productos`);
+    products.forEach(p => {
+      (p.images || []).forEach(u => referenced.add(u.split('/').pop()));
+      if (p.image) referenced.add(p.image.split('/').pop());
+    });
   });
 
   const imageObjs = objects.filter(o => /\.(jpe?g|png|webp|gif|heic)$/i.test(o.key));
   const orphans = imageObjs.filter(o => !referenced.has(o.key));
 
-  console.log('=== data.json: productos =', (data.products || []).length);
+  console.log('=== data.json: perfiles =', profiles.length, '| productos totales =', totalProducts);
   console.log('=== imágenes en bucket =', imageObjs.length, '| referenciadas =', referenced.size);
   console.log('\n=== HUÉRFANAS (subidas pero NO en ningún artículo actual):', orphans.length);
   orphans.sort((a, b) => a.mod - b.mod).forEach(o => {
