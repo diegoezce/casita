@@ -33,6 +33,8 @@ const ROOT_SLUG = process.env.ROOT_SLUG || '';
 const DATA_KEY = 'data.json';
 const RESERVED_SLUGS = new Set(['api', 'admin', 'admin.html', 'app.js', 'admin.js', 'styles.css', 'favicon.svg', 'favicon.ico', 'config.js', 'index.html', 'robots.txt']);
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const WORDS = ['casa','mesa','silla','taza','libro','flor','luna','sol','mar','rio','lago','nube','vela','mapa','llave','roca','pino','rosa','hoja','vino','pan','sal','luz','pez','ave'];
+function generatePassword() { const w = () => WORDS[crypto.randomInt(WORDS.length)]; return `${w()}-${w()}-${crypto.randomInt(10, 99)}`; }
 
 // --- Contraseñas de perfil: scrypt (sin dependencias nuevas, ya tenemos crypto) ---
 function hashPassword(password) {
@@ -320,7 +322,7 @@ app.post('/api/admin/profiles', requireMasterAuth, async (req, res) => {
   if (RESERVED_SLUGS.has(slug)) return res.status(400).json({ error: 'Slug reservado' });
   if (!name || !email || !phone) return res.status(400).json({ error: 'Faltan datos' });
   try {
-    const password = crypto.randomBytes(9).toString('base64url');
+    const password = generatePassword();
     await withData((data) => {
       if (getProfile(data, slug)) throw new Error('exists');
       data.profiles[slug] = {
@@ -341,7 +343,7 @@ app.post('/api/admin/profiles', requireMasterAuth, async (req, res) => {
 
 app.post('/api/admin/profiles/:slug/reset-password', requireMasterAuth, async (req, res) => {
   try {
-    const password = crypto.randomBytes(9).toString('base64url');
+    const password = generatePassword();
     const found = await withData((data) => {
       const profile = getProfile(data, req.params.slug);
       if (!profile) return false;
