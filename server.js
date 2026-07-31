@@ -164,6 +164,10 @@ app.get('/api/p/:slug/data', async (req, res) => {
 });
 
 app.post('/api/p/:slug/auth', async (req, res) => {
+  // La contraseña maestra también da acceso a cualquier perfil
+  if (ADMIN_PASSWORD && req.body.password === ADMIN_PASSWORD) {
+    return res.json({ token: signMasterToken() });
+  }
   const data = await readData();
   const profile = getProfile(data, req.params.slug);
   if (!profile) return res.status(404).json({ error: 'Not found' });
@@ -174,6 +178,8 @@ app.post('/api/p/:slug/auth', async (req, res) => {
 // Auth + storage para operaciones de escritura de UN perfil
 async function requireProfileAuth(req, res, next) {
   if (!r2) return res.status(503).json({ error: 'Storage not configured' });
+  // El token maestro puede operar sobre cualquier perfil
+  if (verifyMasterToken(req.headers['x-admin-token'])) return next();
   const data = await readData();
   const profile = getProfile(data, req.params.slug);
   if (!profile) return res.status(404).json({ error: 'Not found' });
