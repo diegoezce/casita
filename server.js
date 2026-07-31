@@ -296,7 +296,9 @@ app.post('/api/admin/profiles/:slug/reset-password', requireMasterAuth, async (r
 });
 
 // Página de cada perfil: mismo shell que "/", el cliente resuelve el slug por la URL
+// Si el slug pedido es el ROOT_SLUG, redirigir a "/" para que la URL canónica sea sin slug
 app.get('/:slug', (req, res) => {
+  if (ROOT_SLUG && req.params.slug === ROOT_SLUG) return res.redirect(301, '/');
   res.set('Cache-Control', 'no-store');
   res.type('html').send(INDEX_HTML);
 });
