@@ -9,9 +9,13 @@ const app = express();
 
 // Versión que cambia en cada arranque/deploy — rompe el caché de CSS/JS
 const VERSION = Date.now().toString(36);
-const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8')
-  .replace('./styles.css', `./styles.css?v=${VERSION}`)
-  .replace('./app.js', `./app.js?v=${VERSION}`);
+function loadHtml(file) {
+  return fs.readFileSync(path.join(__dirname, file), 'utf8')
+    .replace('./styles.css', `./styles.css?v=${VERSION}`)
+    .replace(`./${file.replace('.html', '.js')}`, `./${file.replace('.html', '.js')}?v=${VERSION}`);
+}
+const INDEX_HTML = loadHtml('index.html');
+const ADMIN_HTML = loadHtml('admin.html');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const r2 = process.env.CF_ACCOUNT_ID ? new S3Client({
@@ -24,15 +28,31 @@ const r2 = process.env.CF_ACCOUNT_ID ? new S3Client({
 }) : null;
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const ROOT_SLUG = process.env.ROOT_SLUG || '';
 const DATA_KEY = 'data.json';
+const RESERVED_SLUGS = new Set(['api', 'admin', 'admin.html', 'app.js', 'admin.js', 'styles.css', 'favicon.svg', 'favicon.ico', 'config.js', 'index.html', 'robots.txt']);
+const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-function signToken() {
+// --- Contraseñas de perfil: scrypt (sin dependencias nuevas, ya tenemos crypto) ---
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt:${salt}:${hash}`;
+}
+function verifyPassword(password, stored) {
+  const [, salt, hash] = String(stored || '').split(':');
+  if (!salt || !hash) return false;
+  const actual = crypto.scryptSync(password, salt, 64).toString('hex');
+  try { return crypto.timingSafeEqual(Buffer.from(actual, 'hex'), Buffer.from(hash, 'hex')); } catch { return false; }
+}
+
+// --- Token maestro (súper-admin): abre solo /api/admin/* ---
+function signMasterToken() {
   const exp = Date.now() + 8 * 60 * 60 * 1000;
   const sig = crypto.createHmac('sha256', ADMIN_PASSWORD).update(String(exp)).digest('hex');
   return `${exp}.${sig}`;
 }
-
-function verifyToken(token) {
+function verifyMasterToken(token) {
   if (!token || !ADMIN_PASSWORD) return !ADMIN_PASSWORD;
   const dot = token.lastIndexOf('.');
   if (dot < 0) return false;
@@ -40,6 +60,22 @@ function verifyToken(token) {
   const sig = token.slice(dot + 1);
   if (Date.now() > parseInt(exp)) return false;
   const expected = crypto.createHmac('sha256', ADMIN_PASSWORD).update(exp).digest('hex');
+  try { return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex')); } catch { return false; }
+}
+
+// --- Token de perfil: formato distinto ("p.<slug>.<exp>.<sig>") para que nunca se confunda con el maestro ---
+function signProfileToken(slug, tokenSecret) {
+  const exp = Date.now() + 8 * 60 * 60 * 1000;
+  const sig = crypto.createHmac('sha256', tokenSecret).update(`${slug}.${exp}`).digest('hex');
+  return `p.${slug}.${exp}.${sig}`;
+}
+function verifyProfileToken(token, slug, tokenSecret) {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length !== 4 || parts[0] !== 'p' || parts[1] !== slug) return false;
+  const exp = parts[2], sig = parts[3];
+  if (Date.now() > parseInt(exp)) return false;
+  const expected = crypto.createHmac('sha256', tokenSecret).update(`${slug}.${exp}`).digest('hex');
   try { return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex')); } catch { return false; }
 }
 
@@ -68,10 +104,32 @@ async function writeData(data) {
   }));
 }
 
+function getProfile(data, slug) { return (data && data.profiles && data.profiles[slug]) || null; }
+
+// Serializa las escrituras (read-modify-write) para evitar carreras
+let writeChain = Promise.resolve();
+function withData(mutator) {
+  const result = writeChain.then(async () => {
+    const data = (await readData()) || { version: 2, profiles: {} };
+    if (!data.profiles) data.profiles = {};
+    const result = await mutator(data);
+    await writeData(data);
+    return result;
+  });
+  // La cadena sigue viva pase lo que pase (si un mutator falla, ej. slug duplicado,
+  // no debe tumbar todas las escrituras futuras); el error real se propaga en `result`.
+  writeChain = result.catch(() => {});
+  return result;
+}
+
 // El HTML siempre fresco; apunta a assets versionados
 app.get(['/', '/index.html'], (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.type('html').send(INDEX_HTML);
+});
+app.get('/admin.html', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(ADMIN_HTML);
 });
 
 app.use(express.static(__dirname, {
@@ -91,42 +149,46 @@ app.get('/config.js', (req, res) => {
     formspreeEndpoint: process.env.FORMSPREE_ENDPOINT || '',
     uploadEnabled: !!r2,
     authRequired: !!ADMIN_PASSWORD,
+    rootSlug: ROOT_SLUG,
   })};`);
 });
 
-app.get('/api/data', async (req, res) => {
-  res.json(await readData());
+// --- API pública por perfil ---
+app.get('/api/p/:slug/data', async (req, res) => {
+  const data = await readData();
+  const profile = getProfile(data, req.params.slug);
+  if (!profile) return res.status(404).json({ error: 'Not found' });
+  res.json({ products: profile.products || [], settings: profile.settings || {}, phone: profile.phone || '' });
 });
 
-// Auth + storage para operaciones de escritura
-function requireAuth(req, res, next) {
-  if (!verifyToken(req.headers['x-admin-token'])) return res.status(401).json({ error: 'Unauthorized' });
+app.post('/api/p/:slug/auth', async (req, res) => {
+  const data = await readData();
+  const profile = getProfile(data, req.params.slug);
+  if (!profile) return res.status(404).json({ error: 'Not found' });
+  if (!verifyPassword(req.body.password, profile.passwordHash)) return res.status(401).json({ error: 'Incorrect password' });
+  res.json({ token: signProfileToken(req.params.slug, profile.tokenSecret) });
+});
+
+// Auth + storage para operaciones de escritura de UN perfil
+async function requireProfileAuth(req, res, next) {
   if (!r2) return res.status(503).json({ error: 'Storage not configured' });
+  const data = await readData();
+  const profile = getProfile(data, req.params.slug);
+  if (!profile) return res.status(404).json({ error: 'Not found' });
+  if (!verifyProfileToken(req.headers['x-admin-token'], req.params.slug, profile.tokenSecret)) return res.status(401).json({ error: 'Unauthorized' });
   next();
 }
 
-// Serializa las escrituras (read-modify-write) para evitar carreras
-let writeChain = Promise.resolve();
-function withData(mutator) {
-  writeChain = writeChain.then(async () => {
-    const data = (await readData()) || { products: [], settings: {} };
-    if (!Array.isArray(data.products)) data.products = [];
-    if (!data.settings) data.settings = {};
-    const result = await mutator(data);
-    await writeData(data);
-    return result;
-  });
-  return writeChain;
-}
-
 // Agregar o actualizar UN artículo (nunca reemplaza la lista entera)
-app.post('/api/product', requireAuth, async (req, res) => {
+app.post('/api/p/:slug/product', requireProfileAuth, async (req, res) => {
   try {
     const saved = await withData((data) => {
+      const profile = getProfile(data, req.params.slug);
+      if (!Array.isArray(profile.products)) profile.products = [];
       const p = req.body;
       p.id = p.id || Date.now().toString(36);
-      const i = data.products.findIndex((x) => x.id === p.id);
-      if (i >= 0) data.products[i] = p; else data.products.unshift(p);
+      const i = profile.products.findIndex((x) => x.id === p.id);
+      if (i >= 0) profile.products[i] = p; else profile.products.unshift(p);
       return p;
     });
     res.json({ ok: true, product: saved });
@@ -134,33 +196,31 @@ app.post('/api/product', requireAuth, async (req, res) => {
 });
 
 // Borrar UN artículo
-app.delete('/api/product/:id', requireAuth, async (req, res) => {
+app.delete('/api/p/:slug/product/:id', requireProfileAuth, async (req, res) => {
   try {
-    await withData((data) => { data.products = data.products.filter((x) => x.id !== req.params.id); });
+    await withData((data) => {
+      const profile = getProfile(data, req.params.slug);
+      profile.products = (profile.products || []).filter((x) => x.id !== req.params.id);
+    });
     res.json({ ok: true });
   } catch { res.status(500).json({ error: 'Delete failed' }); }
 });
 
-// Guardar solo la configuración
-app.put('/api/settings', requireAuth, async (req, res) => {
+// Guardar solo la configuración del perfil
+app.put('/api/p/:slug/settings', requireProfileAuth, async (req, res) => {
   try {
-    await withData((data) => { data.settings = { ...data.settings, ...req.body }; });
+    await withData((data) => {
+      const profile = getProfile(data, req.params.slug);
+      profile.settings = { ...profile.settings, ...req.body };
+    });
     res.json({ ok: true });
   } catch { res.status(500).json({ error: 'Save failed' }); }
 });
 
-app.post('/api/auth', (req, res) => {
-  if (!ADMIN_PASSWORD) return res.status(503).json({ error: 'Auth not configured' });
-  if (req.body.password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Incorrect password' });
-  res.json({ token: signToken() });
-});
-
-app.post('/api/upload', upload.single('file'), async (req, res) => {
-  if (!verifyToken(req.headers['x-admin-token'])) return res.status(401).json({ error: 'Unauthorized' });
-  if (!r2) return res.status(503).json({ error: 'Upload not configured' });
+app.post('/api/p/:slug/upload', requireProfileAuth, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file provided' });
   const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
-  const key = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`;
+  const key = `${req.params.slug}/${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`;
   try {
     await r2.send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
@@ -170,6 +230,75 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }));
     res.json({ url: `${process.env.R2_PUBLIC_URL}/${key}` });
   } catch { res.status(500).json({ error: 'Upload failed' }); }
+});
+
+// --- Auth maestra (súper-admin) ---
+app.post('/api/auth', (req, res) => {
+  if (!ADMIN_PASSWORD) return res.status(503).json({ error: 'Auth not configured' });
+  if (req.body.password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Incorrect password' });
+  res.json({ token: signMasterToken() });
+});
+
+function requireMasterAuth(req, res, next) {
+  if (!verifyMasterToken(req.headers['x-admin-token'])) return res.status(401).json({ error: 'Unauthorized' });
+  if (!r2) return res.status(503).json({ error: 'Storage not configured' });
+  next();
+}
+
+// --- API de súper-admin: alta y listado de perfiles ---
+app.get('/api/admin/profiles', requireMasterAuth, async (req, res) => {
+  const data = await readData();
+  const profiles = Object.values((data && data.profiles) || {}).map((p) => ({
+    slug: p.slug, name: p.name, email: p.email, phone: p.phone, createdAt: p.createdAt, productCount: (p.products || []).length,
+  }));
+  res.json({ profiles });
+});
+
+app.post('/api/admin/profiles', requireMasterAuth, async (req, res) => {
+  const slug = String(req.body.slug || '').trim().toLowerCase();
+  const { name, email, phone } = req.body;
+  if (!SLUG_RE.test(slug) || slug.length < 2 || slug.length > 60) return res.status(400).json({ error: 'Slug inválido' });
+  if (RESERVED_SLUGS.has(slug)) return res.status(400).json({ error: 'Slug reservado' });
+  if (!name || !email || !phone) return res.status(400).json({ error: 'Faltan datos' });
+  try {
+    const password = crypto.randomBytes(9).toString('base64url');
+    await withData((data) => {
+      if (getProfile(data, slug)) throw new Error('exists');
+      data.profiles[slug] = {
+        slug, name, email, phone,
+        passwordHash: hashPassword(password),
+        tokenSecret: crypto.randomBytes(32).toString('hex'),
+        createdAt: Date.now(),
+        products: [],
+        settings: {},
+      };
+    });
+    res.json({ ok: true, slug, password });
+  } catch (e) {
+    if (e.message === 'exists') return res.status(409).json({ error: 'Ese slug ya existe' });
+    res.status(500).json({ error: 'Save failed' });
+  }
+});
+
+app.post('/api/admin/profiles/:slug/reset-password', requireMasterAuth, async (req, res) => {
+  try {
+    const password = crypto.randomBytes(9).toString('base64url');
+    const found = await withData((data) => {
+      const profile = getProfile(data, req.params.slug);
+      if (!profile) return false;
+      profile.passwordHash = hashPassword(password);
+      profile.tokenSecret = crypto.randomBytes(32).toString('hex');
+      return true;
+    });
+    if (!found) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true, password });
+  } catch { res.status(500).json({ error: 'Save failed' }); }
+});
+
+// Página de cada perfil: mismo shell que "/", el cliente resuelve el slug por la URL
+app.get('/:slug', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(INDEX_HTML);
 });
 
 app.listen(process.env.PORT || 3000);

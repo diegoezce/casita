@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f5f0" />
+    <title>casita. — súper-admin</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="topline"></div>
+    <header class="site-header">
+      <a class="brand" href="/">ca<span>si</span>ta<span class="brand-dot">.</span></a>
+      <span class="dialog-title">Súper-admin</span>
+    </header>
+
+    <main id="loginView" style="padding-top:24px;">
+      <p class="eyebrow">Panel maestro</p>
+      <h2>Ingresá la contraseña maestra</h2>
+      <form id="loginForm" style="display:grid;gap:16px;max-width:360px;">
+        <label>Contraseña<input type="password" id="masterPassword" autocomplete="current-password" placeholder="••••••••" /></label>
+        <button class="primary-button" type="submit">Ingresar</button>
+        <p class="form-feedback" id="loginFeedback"></p>
+      </form>
+    </main>
+
+    <main id="panelView" class="hidden" style="padding-top:24px;padding-bottom:60px;">
+      <p class="eyebrow">Panel maestro</p>
+      <h2>Perfiles</h2>
+
+      <div id="newPasswordBox" class="mp-card hidden" style="border-left-color:#25d366;margin-bottom:22px;">
+        <p class="mp-label" style="color:#25d366;">Contraseña generada — no se vuelve a mostrar</p>
+        <div class="mp-row">
+          <span id="newPasswordSlug"></span>
+          <button class="mp-copy" type="button" id="copyNewPassword"><span id="newPasswordText"></span> <span class="mp-copy-hint">copiar</span></button>
+        </div>
+      </div>
+
+      <form class="item-form" id="createForm">
+        <div class="form-title"><h3>Crear perfil</h3></div>
+        <div class="field-row">
+          <label>Nombre<input id="pName" required placeholder="Ej. María Cervera" /></label>
+          <label>Email<input id="pEmail" required type="email" placeholder="maria@email.com" /></label>
+        </div>
+        <div class="field-row">
+          <label>Celular (con país y área)<input id="pPhone" required placeholder="Ej. +5491112345678" /></label>
+          <label>Slug (URL)<input id="pSlug" required placeholder="Ej. maria-cervera" /></label>
+        </div>
+        <button class="primary-button" type="submit">Crear perfil</button>
+        <p class="form-feedback" id="createFeedback"></p>
+      </form>
+
+      <div class="admin-list" id="profileList" style="margin-top:28px;"></div>
+    </main>
+
+    <script src="/config.js"></script>
+    <script src="./admin.js"></script>
+  </body>
+</html>
