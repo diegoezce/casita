@@ -12,7 +12,8 @@ const VERSION = Date.now().toString(36);
 function loadHtml(file) {
   return fs.readFileSync(path.join(__dirname, file), 'utf8')
     .replace('./styles.css', `./styles.css?v=${VERSION}`)
-    .replace(`./${file.replace('.html', '.js')}`, `./${file.replace('.html', '.js')}?v=${VERSION}`);
+    .replace('./app.js', `./app.js?v=${VERSION}`)
+    .replace('./admin.js', `./admin.js?v=${VERSION}`);
 }
 const INDEX_HTML = loadHtml('index.html');
 const ADMIN_HTML = loadHtml('admin.html');
