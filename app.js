@@ -8,8 +8,11 @@ const defaultProducts = [
 ];
 const defaults = { storeName: 'casita.', storeIntro: 'Una selección personal de artículos que ya no uso, pero que todavía tienen mucho para dar.', mpAlias: '', mpCVU: '', mpNombre: '' };
 const serverEnv = window.__ENV__ || {};
-// El slug se resuelve por la ruta (/mi-venta); "/" cae en el perfil configurado como ROOT_SLUG
-const slug = (location.pathname.replace(/^\/+|\/+$/g, '').split('/')[0]) || serverEnv.rootSlug || '';
+// slug: segmento de ruta (ej: "maria"); vacío en "/" → root store del súper-admin
+const slug = location.pathname.replace(/^\/+|\/+$/g, '').split('/')[0];
+const isRoot = !slug;
+const apiBase = isRoot ? '/api/root' : `/api/p/${slug}`;
+const tokenKey = isRoot ? 'casita-master-token' : 'casita-token-' + slug;
 let products = defaultProducts;
 let settings = { ...defaults };
 let whatsappPhone = '';
@@ -17,7 +20,7 @@ let activeFilter = 'todos';
 let editImages = [];
 const $ = (selector) => document.querySelector(selector);
 const grid = $('#productGrid');
-const token = () => sessionStorage.getItem('casita-token-' + slug) || '';
+const token = () => sessionStorage.getItem(tokenKey) || '';
 const getImages = (p) => p.images?.length ? p.images : (p.image ? [p.image] : []);
 
 async function apiWrite(method, path, body) {
@@ -29,9 +32,9 @@ async function apiWrite(method, path, body) {
   if (!r.ok) { alert('No se pudo guardar. Revisá tu conexión e intentá de nuevo.'); throw new Error('save failed'); }
   return r.json();
 }
-const apiSaveProduct = (p) => apiWrite('POST', `/api/p/${slug}/product`, p);
-const apiDeleteProduct = (id) => apiWrite('DELETE', `/api/p/${slug}/product/` + id);
-const apiSaveSettings = (s) => apiWrite('PUT', `/api/p/${slug}/settings`, s);
+const apiSaveProduct = (p) => apiWrite('POST', `${apiBase}/product`, p);
+const apiDeleteProduct = (id) => apiWrite('DELETE', `${apiBase}/product/` + id);
+const apiSaveSettings = (s) => apiWrite('PUT', `${apiBase}/settings`, s);
 // Precio: se guarda como número entero (pesos). parsePrice tolera datos viejos
 // (strings tipo "150.000") y valores no numéricos (ej. "Consultar" -> null).
 function parsePrice(v) { if (typeof v === 'number') return Number.isFinite(v) ? Math.round(v) : null; const d = String(v ?? '').replace(/\D/g, ''); return d ? parseInt(d, 10) : null; }
@@ -64,7 +67,7 @@ async function compressImage(file, maxDim = 1600, quality = 0.8) {
     return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
   } catch { return file; } // fallback: subir sin comprimir
 }
-async function uploadImage(file) { const fd = new FormData(); fd.append('file', file); const r = await fetch(`/api/p/${slug}/upload`, { method: 'POST', body: fd, headers: { 'x-admin-token': token() } }); if (!r.ok) throw new Error('Upload failed'); return (await r.json()).url; }
+async function uploadImage(file) { const fd = new FormData(); fd.append('file', file); const r = await fetch(`${apiBase}/upload`, { method: 'POST', body: fd, headers: { 'x-admin-token': token() } }); if (!r.ok) throw new Error('Upload failed'); return (await r.json()).url; }
 document.addEventListener('change', async e => {
   if (e.target.id !== 'itemImageFile') return;
   const files = Array.from(e.target.files);
@@ -79,7 +82,7 @@ document.addEventListener('change', async e => {
 function mpCard() { const { mpAlias, mpCVU, mpNombre } = settings; if (!mpAlias && !mpCVU) return ''; return `<div class="mp-card"><p class="mp-label">Mercado Pago</p>${mpAlias ? `<div class="mp-row"><span>Alias</span><button class="mp-copy" type="button" data-copy="${mpAlias}">${mpAlias} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpCVU ? `<div class="mp-row"><span>CVU</span><button class="mp-copy" type="button" data-copy="${mpCVU}">${mpCVU} <span class="mp-copy-hint">copiar</span></button></div>` : ''}${mpNombre ? `<div class="mp-row"><span>A nombre de</span><span>${mpNombre}</span></div>` : ''}</div>`; }
 function waLink(productName, price) { const text = encodeURIComponent(`Hola! Me interesa "${productName}" (${formatPrice(price)}) que vi en casita.`); return `https://wa.me/${whatsappPhone.replace(/\D/g, '')}?text=${text}`; }
 // Link público a un artículo puntual (deep-link ?item=ID) o al catálogo completo
-function itemUrl(id) { const isRoot = slug === serverEnv.rootSlug && serverEnv.rootSlug; const base = location.origin + (isRoot ? '/' : location.pathname); return id ? `${base}?item=${id}` : base; }
+function itemUrl(id) { const base = location.origin + (isRoot ? '/' : location.pathname); return id ? `${base}?item=${id}` : base; }
 // Compartir por WhatsApp: sin número, abre el selector para elegir grupo o lista de difusión
 function shareProduct(id) { const p = products.find(x => x.id === id); if (!p) return; const text = `Nuevo en ${settings.storeName.replace('.', '')}: ${p.name} — ${formatPrice(p.price)}\n${itemUrl(id)}`; window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener'); }
 function shareCatalog() { const n = products.filter(p => p.status === 'disponible').length; const store = settings.storeName.replace('.', ''); const text = `Estoy vendiendo algunas cosas en ${store} — ${n} ${n === 1 ? 'artículo disponible' : 'artículos disponibles'}. Mirá el catálogo:\n${itemUrl()}`; window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener'); }
@@ -138,7 +141,7 @@ $('#itemImage').onkeydown = (e) => { if(e.key==='Enter'){e.preventDefault();$('#
 document.addEventListener('submit', async (e) => { if (e.target.id !== 'purchaseForm') return; e.preventDefault(); const form = e.target, feedback = $('#formFeedback'), button = form.querySelector('button'); if (!settings.formspreeEndpoint) { feedback.textContent = 'Todavía falta configurar el endpoint de Formspree.'; feedback.className = 'form-feedback error'; return; } button.disabled = true; button.textContent = 'Enviando…'; try { const response = await fetch(settings.formspreeEndpoint, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } }); if (!response.ok) throw new Error('No se pudo enviar'); form.reset(); feedback.textContent = '¡Listo! Recibí tu consulta y te respondo pronto.'; feedback.className = 'form-feedback success'; button.remove(); } catch { feedback.textContent = 'No se pudo enviar la consulta. Probá de nuevo en unos minutos.'; feedback.className = 'form-feedback error'; button.disabled = false; button.textContent = 'Enviar consulta ↗'; } });
 function openAdmin() { renderAdmin(); $('#adminDialog').showModal(); }
 $('#adminTrigger').onclick = () => { if (token()) { openAdmin(); } else { $('#authFeedback').textContent=''; $('#authForm').reset(); $('#authDialog').showModal(); $('#adminPassword').focus(); } };
-$('#authForm').onsubmit = async (e) => { e.preventDefault(); const fb=$('#authFeedback'), btn=e.target.querySelector('button'); btn.disabled=true; try { const r=await fetch(`/api/p/${slug}/auth`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#adminPassword').value})}); if(!r.ok) throw new Error(); sessionStorage.setItem('casita-token-' + slug,(await r.json()).token); $('#authDialog').close(); openAdmin(); } catch { fb.textContent='Contraseña incorrecta.'; fb.className='form-feedback error'; btn.disabled=false; } };
+$('#authForm').onsubmit = async (e) => { e.preventDefault(); const fb=$('#authFeedback'), btn=e.target.querySelector('button'); btn.disabled=true; try { const authUrl = isRoot ? '/api/auth' : `/api/p/${slug}/auth`; const r=await fetch(authUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#adminPassword').value})}); if(!r.ok) throw new Error(); sessionStorage.setItem(tokenKey,(await r.json()).token); $('#authDialog').close(); openAdmin(); } catch { fb.textContent='Contraseña incorrecta.'; fb.className='form-feedback error'; btn.disabled=false; } };
 $('#closeAdmin').onclick=()=>$('#adminDialog').close(); $('#closeProduct').onclick=()=>$('#productDialog').close(); $('#closeAuth').onclick=()=>$('#authDialog').close();
 ['adminDialog','productDialog','authDialog'].forEach(id=>{const d=$('#'+id);d.addEventListener('click',e=>{if(e.target===d)d.close();});});
 document.querySelectorAll('.admin-tab').forEach(tab=>tab.onclick=()=>{document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active',t===tab)); $('#itemsTab').classList.toggle('hidden',tab.dataset.tab!=='items'); $('#settingsTab').classList.toggle('hidden',tab.dataset.tab!=='settings');});
@@ -147,7 +150,7 @@ $('#itemForm').onsubmit=async (e)=>{e.preventDefault(); if(!editImages.length){a
 $('#settingsForm').onsubmit=async (e)=>{e.preventDefault(); const s={storeName:$('#storeName').value.trim(),storeIntro:$('#storeIntro').value.trim(),mpAlias:$('#mpAlias').value.trim(),mpCVU:$('#mpCVU').value.trim(),mpNombre:$('#mpNombre').value.trim()}; try{ await apiSaveSettings(s); settings={...settings,...s}; applySettings(); }catch{} };
 $('#year').textContent = new Date().getFullYear();
 async function init() {
-  const res = await fetch(`/api/p/${slug}/data`);
+  const res = await fetch(`${apiBase}/data`);
   if (res.status === 404) {
     $('.hero').innerHTML = '<div class="hero-copy"><p class="eyebrow">404</p><h1>Perfil no encontrado.</h1><p class="intro">No existe ninguna venta con esa dirección.</p></div>';
     $('.catalogue').style.display = 'none';

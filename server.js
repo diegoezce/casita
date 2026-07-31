@@ -149,7 +149,6 @@ app.get('/config.js', (req, res) => {
     formspreeEndpoint: process.env.FORMSPREE_ENDPOINT || '',
     uploadEnabled: !!r2,
     authRequired: !!ADMIN_PASSWORD,
-    rootSlug: ROOT_SLUG,
   })};`);
 });
 
@@ -232,6 +231,65 @@ app.post('/api/p/:slug/upload', requireProfileAuth, upload.single('file'), async
   } catch { res.status(500).json({ error: 'Upload failed' }); }
 });
 
+// --- Root store (tienda del súper-admin en "/") ---
+function getRootStore(data) { return (data && data.root) || { products: [], settings: {}, phone: '' }; }
+
+app.get('/api/root/data', async (req, res) => {
+  const data = await readData();
+  const root = getRootStore(data);
+  res.json({ products: root.products || [], settings: root.settings || {}, phone: root.phone || '' });
+});
+
+app.post('/api/root/product', requireMasterAuth, async (req, res) => {
+  try {
+    const saved = await withData((data) => {
+      if (!data.root) data.root = { products: [], settings: {}, phone: '' };
+      if (!Array.isArray(data.root.products)) data.root.products = [];
+      const p = req.body;
+      p.id = p.id || Date.now().toString(36);
+      const i = data.root.products.findIndex((x) => x.id === p.id);
+      if (i >= 0) data.root.products[i] = p; else data.root.products.unshift(p);
+      return p;
+    });
+    res.json({ ok: true, product: saved });
+  } catch { res.status(500).json({ error: 'Save failed' }); }
+});
+
+app.delete('/api/root/product/:id', requireMasterAuth, async (req, res) => {
+  try {
+    await withData((data) => {
+      if (!data.root) return;
+      data.root.products = (data.root.products || []).filter((x) => x.id !== req.params.id);
+    });
+    res.json({ ok: true });
+  } catch { res.status(500).json({ error: 'Delete failed' }); }
+});
+
+app.put('/api/root/settings', requireMasterAuth, async (req, res) => {
+  try {
+    await withData((data) => {
+      if (!data.root) data.root = { products: [], settings: {}, phone: '' };
+      data.root.settings = { ...data.root.settings, ...req.body };
+    });
+    res.json({ ok: true });
+  } catch { res.status(500).json({ error: 'Save failed' }); }
+});
+
+app.post('/api/root/upload', requireMasterAuth, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file provided' });
+  const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
+  const key = `root/${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`;
+  try {
+    await r2.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+    }));
+    res.json({ url: `${process.env.R2_PUBLIC_URL}/${key}` });
+  } catch { res.status(500).json({ error: 'Upload failed' }); }
+});
+
 // --- Auth maestra (súper-admin) ---
 app.post('/api/auth', (req, res) => {
   if (!ADMIN_PASSWORD) return res.status(503).json({ error: 'Auth not configured' });
@@ -296,9 +354,7 @@ app.post('/api/admin/profiles/:slug/reset-password', requireMasterAuth, async (r
 });
 
 // Página de cada perfil: mismo shell que "/", el cliente resuelve el slug por la URL
-// Si el slug pedido es el ROOT_SLUG, redirigir a "/" para que la URL canónica sea sin slug
 app.get('/:slug', (req, res) => {
-  if (ROOT_SLUG && req.params.slug === ROOT_SLUG) return res.redirect(301, '/');
   res.set('Cache-Control', 'no-store');
   res.type('html').send(INDEX_HTML);
 });
